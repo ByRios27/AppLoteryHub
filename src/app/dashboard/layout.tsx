@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clover, LogOut, PanelLeft, LayoutGrid, Trophy } from "lucide-react";
+import { Clover, LogOut, PanelLeft, LayoutGrid, Trophy, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -103,6 +103,16 @@ function MainSidebar() {
                 >
                 <Trophy />
                 Results
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <Link href="/dashboard/settings" legacyBehavior passHref>
+              <SidebarMenuButton isActive={isActive('/dashboard/settings')}
+                 className={cn(isActive('/dashboard/settings') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
+                >
+                <Settings />
+                Settings
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
