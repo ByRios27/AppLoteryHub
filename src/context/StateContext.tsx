@@ -17,7 +17,7 @@ interface StateContextType {
   winningResults: WinningResults;
   setWinningResults: React.Dispatch<React.SetStateAction<WinningResults>>;
   winners: Winner[];
-  setWinners: React.Dispatch<React.SetStateAction<Winner[]>>;
+  addWinner: (lotteryId: string, ticketNumber: string, prizeTier: number) => void;
 }
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
@@ -59,8 +59,34 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('lotteryWinners', JSON.stringify(winners));
   }, [winners]);
 
+  const addWinner = (lotteryId: string, ticketNumber: string, prizeTier: number) => {
+    // Find the sale and ticket corresponding to the winner
+    let foundTicket: TicketDetail | undefined;
+    let foundSale: Sale | undefined;
+
+    for (const sale of sales) {
+        foundTicket = sale.tickets.find(t => t.ticketNumber === ticketNumber);
+        if(foundTicket) {
+            foundSale = sale;
+            break;
+        }
+    }
+
+    if (foundTicket && foundSale) {
+      const newWinner: Winner = {
+        id: foundTicket.id, // Assign ticketId to winner id
+        lotteryId: lotteryId,
+        ticketNumber: ticketNumber,
+        prizeTier: prizeTier,
+        drawDate: new Date().toISOString(),
+      };
+
+      setWinners(prevWinners => [...prevWinners, newWinner]);
+    }
+  };
+
   return (
-    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, setWinners }}>
+    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, addWinner }}>
       {children}
     </StateContext.Provider>
   );

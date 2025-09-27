@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,58 +12,130 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
-const resultsSchema = z.object({
+const addWinnerSchema = z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
+  ticketNumber: z.string().nonempty("El número de boleto no puede estar vacío."),
+  prizeTier: z.coerce.number().min(1, "El premio debe ser al menos 1."),
 });
 
 export default function ResultsPage() {
-  const { winners } = useStateContext();
+  const { winners, addWinner, sales } = useStateContext();
   const [filteredWinners, setFilteredWinners] = useState(winners);
+  const [filterLottery, setFilterLottery] = useState('');
 
-  const form = useForm<z.infer<typeof resultsSchema>>({
-    resolver: zodResolver(resultsSchema),
+  const form = useForm<z.infer<typeof addWinnerSchema>>({
+    resolver: zodResolver(addWinnerSchema),
+    defaultValues: { lotteryId: '', ticketNumber: '', prizeTier: 1 },
   });
 
-  const handleFilter = (values: z.infer<typeof resultsSchema>) => {
-    const filtered = winners.filter(w => w.lotteryId === values.lotteryId);
+  useEffect(() => {
+    const filtered = filterLottery ? winners.filter(w => w.lotteryId === filterLottery) : winners;
     setFilteredWinners(filtered);
+  }, [winners, filterLottery]);
+
+  const handleAddWinner = (values: z.infer<typeof addWinnerSchema>) => {
+    const ticketExistsInSales = sales.some(sale => 
+      sale.lotteryId === values.lotteryId && 
+      sale.tickets.some(ticket => ticket.ticketNumber === values.ticketNumber)
+    );
+
+    if (!ticketExistsInSales) {
+      toast.error('Error: El boleto no existe.', {
+        description: `El número de boleto ${values.ticketNumber} para la lotería seleccionada no fue encontrado en las ventas.`,
+      });
+      return;
+    }
+
+    addWinner(values.lotteryId, values.ticketNumber, values.prizeTier);
+    toast.success('¡Ganador Añadido!', {
+      description: `El boleto ${values.ticketNumber} ha sido registrado como ganador del premio ${values.prizeTier}.`,
+    });
+    form.reset();
   };
 
   return (
-    <main className="flex flex-col gap-4 p-4 md:gap-8 md:p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">Resultados de Sorteos</CardTitle>
-          <CardDescription>Filtra por lotería para ver los números ganadores y los detalles de los premios.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFilter)} className="flex items-center gap-4">
-              <FormField
-                control={form.control}
-                name="lotteryId"
-                render={({ field }) => (
-                  <FormItem className="w-full md:w-1/3">
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+    <main className="grid gap-4 p-4 md:gap-8 md:p-8">
+      <div className="grid md:grid-cols-2 gap-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline">Ingresar Ganador</CardTitle>
+            <CardDescription>Registra un nuevo boleto ganador en el sistema.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleAddWinner)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="lotteryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lotería</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Selecciona una Lotería" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="ticketNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número de Boleto Ganador</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una Lotería" />
-                        </SelectTrigger>
+                        <Input placeholder="Ej: 0524" {...field} />
                       </FormControl>
-                      <SelectContent>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="prizeTier"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Premio</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Ej: 1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Añadir Ganador</Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline">Filtrar Resultados</CardTitle>
+            <CardDescription>Filtra por lotería para ver los números ganadores.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+                <Select onValueChange={setFilterLottery} value={filterLottery}>
+                    <SelectTrigger><SelectValue placeholder="Mostrar Todas" /></SelectTrigger>
+                    <SelectContent>
+                         <SelectItem value="">Mostrar Todas</SelectItem>
                         {lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit">Filtrar Resultados</Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                    </SelectContent>
+                </Select>
+                <Button onClick={() => setFilterLottery('')} variant="outline">Limpiar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -94,7 +166,7 @@ export default function ResultsPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">No hay resultados para la lotería seleccionada.</TableCell>
+                  <TableCell colSpan={4} className="text-center">No hay resultados para mostrar.</TableCell>
                 </TableRow>
               )}
             </TableBody>
