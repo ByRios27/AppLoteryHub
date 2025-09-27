@@ -10,14 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
 import { iconMap } from "@/lib/icon-map";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { generateTimeSlots } from "@/lib/time-slots";
 
 const newLotterySchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  drawTimes: z.string().min(1, "Se requiere al menos un horario de sorteo"),
+  drawTimes: z.array(z.string()).min(1, "Se requiere al menos un horario de sorteo").max(4, "Se permiten como máximo 4 horarios"),
+  numberOfDigits: z.number().min(2).max(5),
 });
 
 const newUserSchema = z.object({
@@ -30,6 +34,8 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [appName, setAppName] = useState("Lotto Hub");
+  const timeSlots = generateTimeSlots();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -37,29 +43,21 @@ export default function SettingsPage() {
       setLogoFile(file);
       toast({
         title: "Archivo listo para subir",
-        description: `${file.name} será guardado al hacer clic en "Guardar Cambios".`,
+        description: `${file.name} será guardado al hacer clic en \"Guardar Cambios.\"`,
       });
     }
   };
 
   const handleSaveCustomization = () => {
-    if (logoFile) {
-        toast({
-            title: "Personalización Guardada (Simulado)",
-            description: `El logo ${logoFile.name} ha sido guardado. La funcionalidad real no está implementada.`,
-        });
-    } else {
-        toast({
-            title: "Sin cambios que guardar",
-            description: `No has seleccionado un nuevo logo.`,
-            variant: 'destructive'
-        });
-    }
+    toast({
+        title: "Personalización Guardada (Simulado)",
+        description: `El título de la aplicación y el logo han sido guardados.`,
+    });
   }
   
   const newLotteryForm = useForm<z.infer<typeof newLotterySchema>>({
     resolver: zodResolver(newLotterySchema),
-    defaultValues: { name: "", drawTimes: "" },
+    defaultValues: { name: "", drawTimes: [], numberOfDigits: 2 },
   });
 
   const newUserForm = useForm<z.infer<typeof newUserSchema>>({
@@ -72,14 +70,15 @@ export default function SettingsPage() {
        id: values.name.toLowerCase().replace(/\s/g, '-'),
        name: values.name,
        icon: 'Ticket', // Using a default icon for new lotteries
-       drawTimes: values.drawTimes.split(',').map(t => t.trim()),
+       drawTimes: values.drawTimes.filter(t => t && t !== 'none'), // Filter out empty strings
+       numberOfDigits: values.numberOfDigits,
      };
 
      setLotteries([...lotteries, newLottery]);
 
      toast({
         title: "Nuevo Sorteo Añadido (Simulado)",
-        description: `El sorteo '${values.name}' con horarios a las ${values.drawTimes} ha sido creado.`,
+        description: `El sorteo '${values.name}' con horarios a las ${values.drawTimes.join(', ')} ha sido creado.`,
       });
       newLotteryForm.reset();
   }
@@ -92,14 +91,33 @@ export default function SettingsPage() {
       newUserForm.reset();
   }
 
-  const handleLotteryUpdate = (index: number, field: keyof Lottery, value: string) => {
-    const updatedLotteries = [...lotteries];
-    if (field === 'drawTimes') {
-      updatedLotteries[index][field] = value.split(',').map(t => t.trim());
-    } else {
-      updatedLotteries[index][field] = value as never;
-    }
+  const handleLotteryUpdate = (index: number, field: keyof Lottery, value: string | string[] | number) => {
+    const updatedLotteries = lotteries.map((lottery, i) => {
+      if (i === index) {
+        return {
+          ...lottery,
+          [field]: value,
+        };
+      }
+      return lottery;
+    });
     setLotteries(updatedLotteries);
+  };
+
+  const handleLotteryIconUpload = (e: React.ChangeEvent<HTMLInputElement>, lotteryIndex: number) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newLotteries = [...lotteries];
+        newLotteries[lotteryIndex] = {
+          ...newLotteries[lotteryIndex],
+          icon: reader.result as string,
+        };
+        setLotteries(newLotteries);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveLottery = (lotteryName: string) => {
@@ -123,6 +141,14 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+                <Label htmlFor="app-name">Título de la Aplicación</Label>
+                <Input
+                id="app-name"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                />
+            </div>
              <div className="space-y-2">
                 <label className="font-medium">Logo de la App</label>
                 <div className="flex items-center gap-4">
@@ -166,7 +192,7 @@ export default function SettingsPage() {
                     <h3 className="text-lg font-medium mb-4">Añadir Nuevo Sorteo</h3>
                     <Form {...newLotteryForm}>
                         <form onSubmit={newLotteryForm.handleSubmit(onNewLotterySubmit)} className="space-y-4">
-                            <div className="grid md:grid-cols-3 gap-4">
+                            <div className="grid md:grid-cols-2 gap-4">
                                 <FormField
                                     control={newLotteryForm.control}
                                     name="name"
@@ -182,24 +208,59 @@ export default function SettingsPage() {
                                 />
                                 <FormField
                                     control={newLotteryForm.control}
-                                    name="drawTimes"
+                                    name="numberOfDigits"
                                     render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Horarios (separados por coma)</FormLabel>
-                                        <FormControl>
-                                        <Input placeholder="Ej: 10:00 AM, 04:00 PM" {...field} />
-                                        </FormControl>
+                                        <FormLabel>Cifras</FormLabel>
+                                        <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={String(field.value)}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona las cifras" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {[2, 3, 4, 5].map(digits => (
+                                                    <SelectItem key={digits} value={String(digits)}>{`${digits} cifras`}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                     )}
                                 />
-                                <div className="md:pt-8">
-                                     <Button type="submit" className="w-full">
-                                        <PlusCircle className="mr-2" />
-                                        Añadir Sorteo
-                                     </Button>
-                                </div>
                             </div>
+                            <div className="grid md:grid-cols-4 gap-4">
+                                {[...Array(4)].map((_, index) => (
+                                    <FormField
+                                        key={index}
+                                        control={newLotteryForm.control}
+                                        name={`drawTimes.${index}` as const}
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Horario {index + 1}</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Selecciona un horario" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="none">Ninguno</SelectItem>
+                                                    {timeSlots.map(slot => (
+                                                        <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                ))}
+                            </div>
+                             <Button type="submit" className="w-full">
+                                <PlusCircle className="mr-2" />
+                                Añadir Sorteo
+                             </Button>
                         </form>
                     </Form>
                 </div>
@@ -215,7 +276,11 @@ export default function SettingsPage() {
                                 <Card key={lottery.id}>
                                     <CardHeader className="flex flex-row items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            {Icon && <Icon className="h-6 w-6 text-primary" />}
+                                            {lottery.icon.startsWith('data:') ? (
+                                                <img src={lottery.icon} className="h-6 w-6" />
+                                            ) : (
+                                                Icon && <Icon className="h-6 w-6 text-primary" />
+                                            )}
                                             <CardTitle className="text-xl font-semibold">{lottery.name}</CardTitle>
                                         </div>
                                          <Button variant="ghost" size="icon" disabled>
@@ -232,12 +297,63 @@ export default function SettingsPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor={`drawTimes-${lottery.id}`}>Horarios (separados por coma)</Label>
-                                            <Input 
-                                                id={`drawTimes-${lottery.id}`} 
-                                                value={lottery.drawTimes.join(', ')}
-                                                onChange={(e) => handleLotteryUpdate(index, 'drawTimes', e.target.value)}
-                                            />
+                                            <Label>Cifras</Label>
+                                            <Select onValueChange={(value) => handleLotteryUpdate(index, 'numberOfDigits', parseInt(value, 10))} value={String(lottery.numberOfDigits)}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona las cifras" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[2, 3, 4, 5].map(digits => (
+                                                        <SelectItem key={digits} value={String(digits)}>{`${digits} cifras`}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Horarios</Label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {[...Array(4)].map((_, timeIndex) => (
+                                                    <Select 
+                                                        key={timeIndex} 
+                                                        onValueChange={(value) => {
+                                                            const newDrawTimes = [...lottery.drawTimes];
+                                                            newDrawTimes[timeIndex] = value;
+                                                            handleLotteryUpdate(index, 'drawTimes', newDrawTimes.filter(t => t && t !== 'none'));
+                                                        }} 
+                                                        value={lottery.drawTimes[timeIndex] || ""}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={`Horario ${timeIndex+1}`} />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">Ninguno</SelectItem>
+                                                            {timeSlots.map(slot => (
+                                                                <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`logo-${lottery.id}`}>Logo del Sorteo</Label>
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative flex-1">
+                                                    <Input
+                                                        id={`logo-${lottery.id}`}
+                                                        type="file"
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        onChange={(e) => handleLotteryIconUpload(e, index)}
+                                                        accept="image/png, image/jpeg, image/svg+xml"
+                                                    />
+                                                    <Button variant="outline" asChild className="pointer-events-none w-full">
+                                                        <div>
+                                                            <UploadCloud className="mr-2" />
+                                                            <span>{'Subir nuevo logo'}</span>
+                                                        </div>
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </CardContent>
                                     <CardFooter>
@@ -308,5 +424,3 @@ export default function SettingsPage() {
     </main>
   );
 }
-
-    
