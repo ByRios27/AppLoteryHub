@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { lotteries, type Lottery, type SoldTicket } from '@/lib/data';
 import { determineWinners } from '@/ai/flows/determine-winners';
+import { iconMap } from '@/lib/icon-map';
 import {
   Accordion,
   AccordionContent,
@@ -242,30 +243,33 @@ export default function ResultsPage() {
       </div>
 
       <Accordion type="single" collapsible className="w-full" defaultValue={lotteries[0].id}>
-        {lotteries.map((lottery) => (
-          <AccordionItem value={lottery.id} key={lottery.id}>
-            <AccordionTrigger className="text-lg font-semibold hover:no-underline">
-              <div className="flex items-center gap-3">
-                <lottery.Icon className="h-6 w-6 text-primary" />
-                {lottery.name}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <Tabs defaultValue={lottery.drawTimes[0]} className="w-full">
-                <TabsList className="flex-wrap h-auto">
+        {lotteries.map((lottery) => {
+          const Icon = iconMap[lottery.icon] || iconMap.Ticket;
+          return (
+            <AccordionItem value={lottery.id} key={lottery.id}>
+              <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-6 w-6 text-primary" />
+                  {lottery.name}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <Tabs defaultValue={lottery.drawTimes[0]} className="w-full">
+                  <TabsList className="flex-wrap h-auto">
+                    {lottery.drawTimes.map((time) => (
+                      <TabsTrigger value={time} key={time}>{time}</TabsTrigger>
+                    ))}
+                  </TabsList>
                   {lottery.drawTimes.map((time) => (
-                    <TabsTrigger value={time} key={time}>{time}</TabsTrigger>
+                      <TabsContent value={time} key={time} className="pt-4">
+                          <DrawResultsManager lottery={lottery} drawTime={time} />
+                      </TabsContent>
                   ))}
-                </TabsList>
-                {lottery.drawTimes.map((time) => (
-                    <TabsContent value={time} key={time} className="pt-4">
-                        <DrawResultsManager lottery={lottery} drawTime={time} />
-                    </TabsContent>
-                ))}
-              </Tabs>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
+                </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
       </Accordion>
     </main>
   );

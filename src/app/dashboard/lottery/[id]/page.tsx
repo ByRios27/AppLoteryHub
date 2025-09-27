@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCap
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import placeholderImages from '@/lib/placeholder-images.json';
+import { iconMap } from "@/lib/icon-map";
 
 const TICKET_PRICE_PER_FRACTION = 0.20;
 
@@ -34,7 +35,8 @@ export default function LotteryDetailPage() {
   const params = useParams();
   const lotteryId = params.id as string;
   
-  const [lottery, setLottery] = useState(lotteries.find((l) => l.id === lotteryId));
+  const initialLottery = useMemo(() => lotteries.find((l) => l.id === lotteryId), [lotteryId]);
+  const [lottery, setLottery] = useState(initialLottery);
   const [soldTickets, setSoldTickets] = useState<SoldTicket[]>([]);
   const [activeTab, setActiveTab] = useState(lottery?.drawTimes[0] || "");
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
@@ -98,6 +100,8 @@ export default function LotteryDetailPage() {
     return null; // Or a loading spinner, notFound handles the server render case
   }
 
+  const Icon = iconMap[lottery.icon] || iconMap.Ticket;
+
   const fractions = form.watch("fractions");
   const calculatedCost = isNaN(fractions) ? 0 : fractions * TICKET_PRICE_PER_FRACTION;
   
@@ -112,7 +116,7 @@ export default function LotteryDetailPage() {
             <span className="sr-only">Back</span>
           </Link>
         </Button>
-        <lottery.Icon className="h-10 w-10 text-primary" />
+        <Icon className="h-10 w-10 text-primary" />
         <h1 className="text-3xl font-bold font-headline">{lottery.name}</h1>
       </div>
 

@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
-import { Ticket } from "lucide-react";
+import { iconMap } from "@/lib/icon-map";
 
 const newLotterySchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -70,7 +70,7 @@ export default function SettingsPage() {
      const newLottery: Lottery = {
        id: values.name.toLowerCase().replace(/\s/g, '-'),
        name: values.name,
-       Icon: Ticket, // Using a default icon for new lotteries
+       icon: 'Ticket', // Using a default icon for new lotteries
        drawTimes: values.drawTimes.split(',').map(t => t.trim()),
      };
 
@@ -243,5 +243,3 @@ export default function SettingsPage() {
     </main>
   );
 }
-
-  
