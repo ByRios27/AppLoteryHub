@@ -22,30 +22,34 @@ interface StateContextType {
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
+// Helper function to safely parse stored JSON
+function getStoredData<T>(key: string, defaultValue: T): T {
+  if (typeof window === 'undefined') {
+    return defaultValue;
+  }
+
+  const savedData = localStorage.getItem(key);
+  if (!savedData) {
+    return defaultValue;
+  }
+
+  try {
+    const parsedData = JSON.parse(savedData);
+    // For arrays, ensure it's actually an array before returning
+    if (Array.isArray(defaultValue) && !Array.isArray(parsedData)) {
+        return defaultValue;
+    }
+    return parsedData;
+  } catch (error) {
+    console.error(`Error parsing ${key} from localStorage`, error);
+    return defaultValue;
+  }
+}
+
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
-  const [sales, setSales] = useState<Sale[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedSales = localStorage.getItem('lotterySales');
-      return savedSales ? JSON.parse(savedSales) : [];
-    }
-    return [];
-  });
-
-  const [winningResults, setWinningResults] = useState<WinningResults>(() => {
-    if (typeof window !== 'undefined') {
-      const savedResults = localStorage.getItem('winningResults');
-      return savedResults ? JSON.parse(savedResults) : {};
-    }
-    return {};
-  });
-
-  const [winners, setWinners] = useState<Winner[]>(() => {
-    if (typeof window !== 'undefined') {
-      const savedWinners = localStorage.getItem('lotteryWinners');
-      return savedWinners ? JSON.parse(savedWinners) : [];
-    }
-    return [];
-  });
+  const [sales, setSales] = useState<Sale[]>(() => getStoredData('lotterySales', []));
+  const [winningResults, setWinningResults] = useState<WinningResults>(() => getStoredData('winningResults', {}));
+  const [winners, setWinners] = useState<Winner[]>(() => getStoredData('lotteryWinners', []));
 
   useEffect(() => {
     localStorage.setItem('lotterySales', JSON.stringify(sales));
@@ -56,7 +60,10 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   }, [winningResults]);
 
   useEffect(() => {
-    localStorage.setItem('lotteryWinners', JSON.stringify(winners));
+    // Ensure winners is always an array before setting to localStorage
+    if (Array.isArray(winners)) {
+      localStorage.setItem('lotteryWinners', JSON.stringify(winners));
+    }
   }, [winners]);
 
   const addWinner = (ticketId: string, lotteryId: string, ticketNumber: string, prizeTier: number) => {
@@ -69,10 +76,11 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     };
 
     setWinners(prevWinners => {
-      if (prevWinners.some(winner => winner.id === newWinner.id)) {
-        return prevWinners; 
+      const safePrevWinners = Array.isArray(prevWinners) ? prevWinners : [];
+      if (safePrevWinners.some(winner => winner.id === newWinner.id)) {
+        return safePrevWinners; 
       }
-      return [...prevWinners, newWinner];
+      return [...safePrevWinners, newWinner];
     });
   };
 
