@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { StateContextProvider } from '@/context/StateContext';
@@ -25,7 +25,7 @@ export default function RootLayout({
         <StateContextProvider>
           {children}
         </StateContextProvider>
-        <Toaster />
+        <Toaster richColors />
       </body>
     </html>
   );
