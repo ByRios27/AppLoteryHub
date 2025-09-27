@@ -30,6 +30,8 @@ export type SoldTicket = {
   fractions: number;
   cost: number;
   soldAt: Date;
+  customerName?: string;
+  customerPhone?: string;
   isWinner?: boolean;
   isPaid?: boolean;
 };
