@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { UploadCloud, PlusCircle, UserPlus, Save } from "lucide-react";
+import { UploadCloud, PlusCircle, UserPlus, Save, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
 import { iconMap } from "@/lib/icon-map";
+import { Separator } from "@/components/ui/separator";
 
 const newLotterySchema = z.object({
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -36,7 +37,7 @@ export default function SettingsPage() {
       setLogoFile(file);
       toast({
         title: "Archivo listo para subir",
-        description: `${file.name} será guardado al hacer clic en \"Guardar Cambios\".`,
+        description: `${file.name} será guardado al hacer clic en "Guardar Cambios".`,
       });
     }
   };
@@ -91,6 +92,23 @@ export default function SettingsPage() {
       newUserForm.reset();
   }
 
+  const handleLotteryUpdate = (index: number, field: keyof Lottery, value: string) => {
+    const updatedLotteries = [...lotteries];
+    if (field === 'drawTimes') {
+      updatedLotteries[index][field] = value.split(',').map(t => t.trim());
+    } else {
+      updatedLotteries[index][field] = value as never;
+    }
+    setLotteries(updatedLotteries);
+  };
+
+  const handleSaveLottery = (lotteryName: string) => {
+    toast({
+        title: "Sorteo Guardado",
+        description: `Los cambios en '${lotteryName}' han sido guardados (simulado).`,
+    });
+  }
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center">
@@ -139,53 +157,100 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Gestión de Sorteos</CardTitle>
             <CardDescription>
-              Añade nuevos sorteos. Los sorteos existentes se muestran a continuación.
+              Añade nuevos sorteos o modifica los existentes.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...newLotteryForm}>
-                <form onSubmit={newLotteryForm.handleSubmit(onNewLotterySubmit)} className="space-y-4">
-                    <div className="grid md:grid-cols-3 gap-4">
-                        <FormField
-                            control={newLotteryForm.control}
-                            name="name"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Nombre del Sorteo</FormLabel>
-                                <FormControl>
-                                <Input placeholder="Ej: Millonario del Atardecer" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={newLotteryForm.control}
-                            name="drawTimes"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Horarios (separados por coma)</FormLabel>
-                                <FormControl>
-                                <Input placeholder="Ej: 10:00 AM, 04:00 PM" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <div className="md:pt-8">
-                             <Button type="submit" className="w-full">
-                                <PlusCircle className="mr-2" />
-                                Añadir Sorteo
-                             </Button>
-                        </div>
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-lg font-medium mb-4">Añadir Nuevo Sorteo</h3>
+                    <Form {...newLotteryForm}>
+                        <form onSubmit={newLotteryForm.handleSubmit(onNewLotterySubmit)} className="space-y-4">
+                            <div className="grid md:grid-cols-3 gap-4">
+                                <FormField
+                                    control={newLotteryForm.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nombre del Sorteo</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Ej: Millonario del Atardecer" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={newLotteryForm.control}
+                                    name="drawTimes"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Horarios (separados por coma)</FormLabel>
+                                        <FormControl>
+                                        <Input placeholder="Ej: 10:00 AM, 04:00 PM" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <div className="md:pt-8">
+                                     <Button type="submit" className="w-full">
+                                        <PlusCircle className="mr-2" />
+                                        Añadir Sorteo
+                                     </Button>
+                                </div>
+                            </div>
+                        </form>
+                    </Form>
+                </div>
+                
+                <Separator />
+
+                <div>
+                    <h3 className="text-lg font-medium mb-4">Sorteos Actuales</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {lotteries.map((lottery, index) => {
+                            const Icon = iconMap[lottery.icon];
+                            return (
+                                <Card key={lottery.id}>
+                                    <CardHeader className="flex flex-row items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            {Icon && <Icon className="h-6 w-6 text-primary" />}
+                                            <CardTitle className="text-xl font-semibold">{lottery.name}</CardTitle>
+                                        </div>
+                                         <Button variant="ghost" size="icon" disabled>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                         </Button>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`name-${lottery.id}`}>Nombre del Sorteo</Label>
+                                            <Input 
+                                                id={`name-${lottery.id}`} 
+                                                value={lottery.name}
+                                                onChange={(e) => handleLotteryUpdate(index, 'name', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`drawTimes-${lottery.id}`}>Horarios (separados por coma)</Label>
+                                            <Input 
+                                                id={`drawTimes-${lottery.id}`} 
+                                                value={lottery.drawTimes.join(', ')}
+                                                onChange={(e) => handleLotteryUpdate(index, 'drawTimes', e.target.value)}
+                                            />
+                                        </div>
+                                    </CardContent>
+                                    <CardFooter>
+                                        <Button onClick={() => handleSaveLottery(lottery.name)}>
+                                            <Save className="mr-2 h-4 w-4"/>
+                                            Guardar Cambios
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            )
+                        })}
                     </div>
-                </form>
-            </Form>
-             <div className="mt-6">
-                <h3 className="text-lg font-medium">Sorteos Actuales</h3>
-                 <ul className="mt-2 list-disc list-inside space-y-1 text-muted-foreground">
-                    {lotteries.map(l => <li key={l.id}>{l.name} ({l.drawTimes.join(', ')})</li>)}
-                 </ul>
+                </div>
             </div>
           </CardContent>
         </Card>
@@ -243,3 +308,5 @@ export default function SettingsPage() {
     </main>
   );
 }
+
+    
