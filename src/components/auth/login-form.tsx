@@ -53,7 +53,7 @@ export function LoginForm() {
     setIsLoading(true);
     // Mock authentication
     setTimeout(() => {
-      if (values.username === "admin" && values.password === "password") {
+      if (values.username === "Admin27" && values.password === "Valery27") {
         toast({
           title: "Login Successful",
           description: "Welcome back!",
@@ -88,7 +88,7 @@ export function LoginForm() {
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="admin" {...field} disabled={isLoading} />
+                    <Input placeholder="Admin27" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -104,7 +104,7 @@ export function LoginForm() {
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="password"
+                        placeholder="Valery27"
                         {...field}
                         disabled={isLoading}
                       />
