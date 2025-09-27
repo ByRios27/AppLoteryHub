@@ -10,6 +10,7 @@ import { ArrowLeft, PlusCircle, Trash2, Share2, Printer, X, Award, Receipt, Edit
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { iconMap } from "@/lib/icon-map";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
