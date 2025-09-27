@@ -86,9 +86,9 @@ export function LoginForm() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Username</FormLabel>
+                  <FormLabel>Usuario</FormLabel>
                   <FormControl>
-                    <Input placeholder="Admin27" {...field} disabled={isLoading} />
+                    <Input placeholder="Usuario" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -99,12 +99,12 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Contraseña</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
                         type={showPassword ? "text" : "password"}
-                        placeholder="Valery27"
+                        placeholder="Contraseña"
                         {...field}
                         disabled={isLoading}
                       />
