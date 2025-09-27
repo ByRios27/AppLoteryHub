@@ -15,10 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
-const addWinnerSchema = z.object({
+const registerDrawSchema = z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
-  ticketNumber: z.string().nonempty("El número de boleto no puede estar vacío."),
-  prizeTier: z.coerce.number().min(1, "El premio debe ser al menos 1."),
+  firstPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
+  secondPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
+  thirdPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
 });
 
 export default function ResultsPage() {
@@ -31,9 +32,14 @@ export default function ResultsPage() {
     setIsClient(true);
   }, []);
 
-  const form = useForm<z.infer<typeof addWinnerSchema>>({
-    resolver: zodResolver(addWinnerSchema),
-    defaultValues: { lotteryId: '', ticketNumber: '', prizeTier: 1 },
+  const form = useForm<z.infer<typeof registerDrawSchema>>({
+    resolver: zodResolver(registerDrawSchema),
+    defaultValues: { 
+      lotteryId: '', 
+      firstPrizeNumber: '', 
+      secondPrizeNumber: '', 
+      thirdPrizeNumber: '' 
+    },
   });
 
   useEffect(() => {
@@ -43,23 +49,39 @@ export default function ResultsPage() {
     }
   }, [winners, filterLottery, isClient]);
 
-  const handleAddWinner = (values: z.infer<typeof addWinnerSchema>) => {
-    const ticketExistsInSales = sales.some(sale => 
-      sale.lotteryId === values.lotteryId && 
-      sale.tickets.some(ticket => ticket.ticketNumber === values.ticketNumber)
-    );
+ const handleRegisterDraw = (values: z.infer<typeof registerDrawSchema>) => {
+    const { lotteryId, firstPrizeNumber, secondPrizeNumber, thirdPrizeNumber } = values;
 
-    if (!ticketExistsInSales) {
-      toast.error('Error: El boleto no existe.', {
-        description: `El número de boleto ${values.ticketNumber} para la lotería seleccionada no fue encontrado en las ventas.`,
-      });
-      return;
+    const prizeNumbers = [
+        { number: firstPrizeNumber, prizeTier: 1 },
+        { number: secondPrizeNumber, prizeTier: 2 },
+        { number: thirdPrizeNumber, prizeTier: 3 },
+    ];
+
+    let winnersFoundCount = 0;
+
+    const relevantSales = sales.filter(sale => sale.lotteryId === lotteryId);
+
+    for (const sale of relevantSales) {
+      for (const ticket of sale.tickets) {
+        for (const prize of prizeNumbers) {
+          if (ticket.ticketNumber === prize.number) {
+            addWinner(ticket.id, lotteryId, ticket.ticketNumber, prize.prizeTier);
+            winnersFoundCount++;
+          }
+        }
+      }
     }
 
-    addWinner(values.lotteryId, values.ticketNumber, values.prizeTier);
-    toast.success('¡Ganador Añadido!', {
-      description: `El boleto ${values.ticketNumber} ha sido registrado como ganador del premio ${values.prizeTier}.`,
-    });
+    if (winnersFoundCount > 0) {
+        toast.success(`¡${winnersFoundCount} ganadores registrados!`, {
+            description: `Se procesaron los resultados para la lotería seleccionada.`,
+        });
+    } else {
+        toast.info('No se encontraron ganadores', {
+            description: 'Ningún boleto vendido coincide con los números ganadores ingresados.',
+        });
+    }
     form.reset();
   };
 
@@ -68,12 +90,12 @@ export default function ResultsPage() {
       <div className="grid md:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Ingresar Ganador</CardTitle>
-            <CardDescription>Registra un nuevo boleto ganador en el sistema.</CardDescription>
+            <CardTitle className="font-headline">Registrar Resultados del Sorteo</CardTitle>
+            <CardDescription>Ingresa los números ganadores para una lotería específica.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleAddWinner)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleRegisterDraw)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="lotteryId"
@@ -94,10 +116,10 @@ export default function ResultsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="ticketNumber"
+                  name="firstPrizeNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Número de Boleto Ganador</FormLabel>
+                      <FormLabel>Número del 1er Premio</FormLabel>
                       <FormControl>
                         <Input placeholder="Ej: 0524" {...field} />
                       </FormControl>
@@ -107,18 +129,31 @@ export default function ResultsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="prizeTier"
+                  name="secondPrizeNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Premio</FormLabel>
+                      <FormLabel>Número del 2do Premio</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="Ej: 1" {...field} />
+                        <Input placeholder="Ej: 1190" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit">Añadir Ganador</Button>
+                 <FormField
+                  control={form.control}
+                  name="thirdPrizeNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número del 3er Premio</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ej: 8345" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit">Registrar Ganadores</Button>
               </form>
             </Form>
           </CardContent>
