@@ -1,9 +1,14 @@
+"use client";
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { lotteries } from '@/lib/data';
+import { lotteries as initialLotteries, type Lottery } from '@/lib/data';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowRight } from 'lucide-react';
 
 export default function DashboardPage() {
+  const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
       <div className="flex items-center">
@@ -19,7 +24,7 @@ export default function DashboardPage() {
                      <lottery.Icon className="h-10 w-10 text-primary" />
                      <div>
                        <CardTitle className="font-headline text-xl">{lottery.name}</CardTitle>
-                       <CardDescription>{lottery.drawTimes.length} draws today</CardDescription>
+                       <CardDescription>{lottery.drawTimes.length > 1 ? `${lottery.drawTimes.length} draws today` : lottery.drawTimes[0]}</CardDescription>
                      </div>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />

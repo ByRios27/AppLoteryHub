@@ -4,12 +4,14 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { UploadCloud, PlusCircle, Trash2, Save, UserPlus } from "lucide-react";
+import { UploadCloud, PlusCircle, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
+import { Ticket } from "lucide-react";
 
 const newLotterySchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -24,6 +26,7 @@ const newUserSchema = z.object({
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -46,6 +49,19 @@ export default function SettingsPage() {
   });
   
   const onNewLotterySubmit = (values: z.infer<typeof newLotterySchema>) => {
+     const newLottery: Lottery = {
+       id: values.name.toLowerCase().replace(/\s/g, '-'),
+       name: values.name,
+       Icon: Ticket, // Using a default icon for new lotteries
+       drawTimes: values.drawTimes.split(',').map(t => t.trim()),
+     };
+
+     // In a real app, this would be an API call to a database.
+     // Here we simulate by updating client-side state.
+     // To make this "permanent" for the demo, we'd need to write to `src/lib/data.ts`
+     // which is beyond the scope of this simulation.
+     setLotteries([...lotteries, newLottery]);
+
      toast({
         title: "New Lottery Added (Simulated)",
         description: `Lottery '${values.name}' with draws at ${values.drawTimes} has been created.`,
@@ -103,7 +119,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Lottery Management</CardTitle>
             <CardDescription>
-              Add new lotteries or edit existing ones.
+              Add new lotteries. Existing lotteries are shown below.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -128,7 +144,7 @@ export default function SettingsPage() {
                             name="drawTimes"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Draw Times</FormLabel>
+                                <FormLabel>Draw Times (comma-separated)</FormLabel>
                                 <FormControl>
                                 <Input placeholder="e.g., 10:00 AM, 04:00 PM" {...field} />
                                 </FormControl>
@@ -145,6 +161,12 @@ export default function SettingsPage() {
                     </div>
                 </form>
             </Form>
+             <div className="mt-6">
+                <h3 className="text-lg font-medium">Current Lotteries</h3>
+                 <ul className="mt-2 list-disc list-inside space-y-1 text-muted-foreground">
+                    {lotteries.map(l => <li key={l.id}>{l.name} ({l.drawTimes.join(', ')})</li>)}
+                 </ul>
+            </div>
           </CardContent>
         </Card>
         
