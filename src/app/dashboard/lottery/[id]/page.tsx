@@ -6,10 +6,9 @@ import { lotteries, type Sale, type TicketDetail } from "@/lib/data";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowLeft, PlusCircle, Trash2, Share2, Printer, X, Award, Receipt, Edit } from "lucide-react";
+import { ArrowLeft, PlusCircle, Trash2, Share2, Printer, Receipt, Edit } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 import { iconMap } from "@/lib/icon-map";
 
 import { Button } from "@/components/ui/button";
@@ -18,36 +17,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useStateContext } from "@/context/StateContext";
 
 const TICKET_PRICE_PER_FRACTION = 0.20;
 
 const ticketEntrySchema = z.object({
-    ticketNumber: z.string()
-        .length(2, "Must be 2 digits")
-        .regex(/^\d{2}$/, "Must be a number from 00 to 99"),
-    fractions: z.coerce.number().min(1, "Min 1"),
+    ticketNumber: z.string().length(2, "Debe tener 2 dígitos").regex(/^\d{2}$/, "Debe ser un número del 00 al 99"),
+    fractions: z.coerce.number().min(1, "Mínimo 1"),
 });
 
 const saleFormSchema = z.object({
     customerName: z.string().optional(),
     customerPhone: z.string().optional(),
-    tickets: z.array(ticketEntrySchema).min(1, "Please add at least one ticket."),
-});
-
-const resultsFormSchema = z.object({
-    winningNumber: z.string()
-        .length(2, "Must be 2 digits")
-        .regex(/^\d{2}$/, "Must be a number from 00 to 99"),
+    tickets: z.array(ticketEntrySchema).min(1, "Añade al menos un boleto."),
 });
 
 export default function LotteryDetailPage() {
     const params = useParams();
     const lotteryId = params.id as string;
 
-    const { sales, setSales, winningResults, setWinningResults } = useStateContext();
+    const { sales, setSales } = useStateContext();
+    const { toast } = useToast();
 
     const lottery = useMemo(() => lotteries.find((l) => l.id === lotteryId), [lotteryId]);
 
@@ -55,8 +47,6 @@ export default function LotteryDetailPage() {
     const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-
-    const { toast } = useToast();
 
     useEffect(() => {
         if (lottery) {
@@ -68,31 +58,14 @@ export default function LotteryDetailPage() {
 
     const saleForm = useForm<z.infer<typeof saleFormSchema>>({
         resolver: zodResolver(saleFormSchema),
-        defaultValues: {
-            customerName: "",
-            customerPhone: "",
-            tickets: [{ ticketNumber: "", fractions: 1 }],
-        },
+        defaultValues: { customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] },
     });
 
-    const { fields, append, remove } = useFieldArray({
-        control: saleForm.control,
-        name: "tickets",
-    });
-    
-    const editForm = useForm<z.infer<typeof saleFormSchema>>({
-        resolver: zodResolver(saleFormSchema),
-    });
+    const { fields, append, remove } = useFieldArray({ control: saleForm.control, name: "tickets" });
 
-    const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({
-        control: editForm.control,
-        name: "tickets",
-    });
+    const editForm = useForm<z.infer<typeof saleFormSchema>>({ resolver: zodResolver(saleFormSchema) });
 
-    const resultsForm = useForm<z.infer<typeof resultsFormSchema>>({
-        resolver: zodResolver(resultsFormSchema),
-        defaultValues: { winningNumber: "" },
-    });
+    const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tickets" });
 
     const onSaleSubmit = (values: z.infer<typeof saleFormSchema>) => {
         const ticketDetails: Omit<TicketDetail, 'id'>[] = values.tickets.map(ticket => ({
@@ -100,54 +73,36 @@ export default function LotteryDetailPage() {
             fractions: ticket.fractions,
             cost: ticket.fractions * TICKET_PRICE_PER_FRACTION,
         }));
-
         const totalCost = ticketDetails.reduce((acc, ticket) => acc + ticket.cost, 0);
-
         const newSale: Sale = {
             id: `S${Date.now()}`,
             lotteryId: lotteryId,
             drawTime: activeDrawTime,
             customerName: values.customerName,
             customerPhone: values.customerPhone,
-            tickets: ticketDetails.map(td => ({...td, id: `T${Date.now()}-${td.ticketNumber}`})),
+            tickets: ticketDetails.map(td => ({ ...td, id: `T${Date.now()}-${td.ticketNumber}` })),
             totalCost: totalCost,
             soldAt: new Date(),
         };
-
         setSales(prev => [...prev, newSale]);
-        toast({ title: "Sale Successful!", description: `Sale ${newSale.id} created.` });
+        toast({ title: "¡Venta Exitosa!", description: `Venta ${newSale.id} creada.` });
         saleForm.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
     };
-    
+
     const onEditSubmit = (values: z.infer<typeof saleFormSchema>) => {
         if (!selectedSale) return;
-
         const updatedTickets: TicketDetail[] = values.tickets.map(ticket => ({
             id: `T${Date.now()}-${ticket.ticketNumber}`,
             ticketNumber: ticket.ticketNumber,
             fractions: ticket.fractions,
             cost: ticket.fractions * TICKET_PRICE_PER_FRACTION,
         }));
-
         const totalCost = updatedTickets.reduce((acc, ticket) => acc + ticket.cost, 0);
-
-        const updatedSale: Sale = {
-            ...selectedSale,
-            customerName: values.customerName,
-            customerPhone: values.customerPhone,
-            tickets: updatedTickets,
-            totalCost: totalCost,
-        };
-
+        const updatedSale: Sale = { ...selectedSale, customerName: values.customerName, customerPhone: values.customerPhone, tickets: updatedTickets, totalCost: totalCost };
         setSales(prev => prev.map(s => s.id === selectedSale.id ? updatedSale : s));
-        toast({ title: "Sale Updated!", description: `Sale ${selectedSale.id} has been updated.` });
+        toast({ title: "¡Venta Actualizada!", description: `Venta ${selectedSale.id} ha sido actualizada.` });
         setIsEditDialogOpen(false);
         setSelectedSale(null);
-    };
-
-    const onResultsSubmit = (values: z.infer<typeof resultsFormSchema>) => {
-        setWinningResults(prev => ({ ...prev, [`${lotteryId}-${activeDrawTime}`]: values.winningNumber }));
-        toast({ title: "Result Saved!", description: `Winning number for the ${activeDrawTime} draw is ${values.winningNumber}.` });
     };
 
     const openReceiptDialog = (sale: Sale) => {
@@ -157,54 +112,64 @@ export default function LotteryDetailPage() {
 
     const openEditDialog = (sale: Sale) => {
         setSelectedSale(sale);
-        editForm.reset({
-            customerName: sale.customerName,
-            customerPhone: sale.customerPhone,
-            tickets: sale.tickets.map(t => ({ ticketNumber: t.ticketNumber, fractions: t.fractions }))
-        });
+        editForm.reset({ customerName: sale.customerName, customerPhone: sale.customerPhone, tickets: sale.tickets.map(t => ({ ticketNumber: t.ticketNumber, fractions: t.fractions })) });
         setIsEditDialogOpen(true);
     };
 
     const handleDeleteSale = (saleId: string) => {
         setSales(sales.filter(s => s.id !== saleId));
-        toast({ title: "Sale Deleted", variant: "destructive" });
-    }
+        toast({ title: "Venta Eliminada", variant: "destructive" });
+    };
+
+    const handleShare = async (sale: Sale | null) => {
+        if (!sale || !lottery) return;
+        const verificationUrl = `${window.location.origin}/verify?saleId=${sale.id}`;
+        const ticketsText = sale.tickets.map(t => `> Nro: ${t.ticketNumber} | Cant: ${t.fractions} | Costo: $${t.cost.toFixed(2)}`).join('\n');
+        const shareText = `*COMPROBANTE DE VENTA*\n----------------------------\nLotería: ${lottery.name}\nSorteo: ${sale.drawTime}\nCliente: ${sale.customerName || 'N/A'}\nFecha: ${new Date(sale.soldAt).toLocaleString()}\n----------------------------\nBoletos:\n${ticketsText}\n----------------------------\n*TOTAL: $${sale.totalCost.toFixed(2)}*\n\nVerificar autenticidad en:\n${verificationUrl}`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: 'Comprobante de Venta', text: shareText });
+            } catch (error) { 
+                console.error("Error al compartir", error);
+                toast({ title: "Error al compartir", variant: "destructive" });
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareText);
+                toast({ title: "Copiado al portapapeles", description: "El texto del recibo ha sido copiado." });
+            } catch (error) {
+                toast({ title: "Error al copiar", variant: "destructive" });
+            }
+        }
+    };
 
     const salesForCurrentDraw = useMemo(() => {
-        return sales.filter((s) => s.drawTime === activeDrawTime && s.lotteryId === lotteryId).sort((a,b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+        return sales.filter((s) => s.drawTime === activeDrawTime && s.lotteryId === lotteryId).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
     }, [sales, activeDrawTime, lotteryId]);
-
-    const winningNumberForCurrentDraw = winningResults[`${lotteryId}-${activeDrawTime}`];
-    
-    const winners = useMemo(() => {
-        if (!winningNumberForCurrentDraw) return [];
-        return salesForCurrentDraw.filter(sale => sale.tickets.some(t => t.ticketNumber === winningNumberForCurrentDraw));
-    }, [salesForCurrentDraw, winningNumberForCurrentDraw]);
 
     if (!lottery) return null;
 
     const Icon = iconMap[lottery.icon] || iconMap.Ticket;
-
     const watchedSaleTickets = saleForm.watch("tickets");
     const totalSaleCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * TICKET_PRICE_PER_FRACTION), 0);
 
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
             <div className="flex items-center gap-4">
-                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Back</span></Link></Button>
+                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
                 <Icon className="h-10 w-10 text-primary" />
                 <h1 className="text-3xl font-bold font-headline">{lottery.name}</h1>
             </div>
 
             <Tabs value={activeDrawTime} onValueChange={setActiveDrawTime} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">{lottery.drawTimes.map((time) => (<TabsTrigger key={time} value={time}>{time}</TabsTrigger>))}</TabsList>
+                <TabsList className={`grid w-full grid-cols-${lottery.drawTimes.length}`}>{lottery.drawTimes.map((time) => (<TabsTrigger key={time} value={time}>{time}</TabsTrigger>))}</TabsList>
                 {lottery.drawTimes.map((time) => (
                     <TabsContent key={time} value={time}>
                         <Tabs defaultValue="sell" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3"> 
+                            <TabsList className="grid w-full grid-cols-2"> 
                                 <TabsTrigger value="sell">Vender</TabsTrigger>
                                 <TabsTrigger value="sales">Ventas Realizadas</TabsTrigger>
-                                <TabsTrigger value="winners">Resultados y Ganadores</TabsTrigger>
                             </TabsList>
                             <TabsContent value="sell" className="pt-6">
                                 <Card><CardHeader><CardTitle className="font-headline">Vender Boletos</CardTitle><CardDescription>Crear una nueva venta para el sorteo de las {time}.</CardDescription></CardHeader>
@@ -212,14 +177,14 @@ export default function LotteryDetailPage() {
                                         <Form {...saleForm}>
                                             <form onSubmit={saleForm.handleSubmit(onSaleSubmit)} className="space-y-6">
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <FormField control={saleForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                    <FormField control={saleForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input placeholder="+1 123 456 7890" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={saleForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={saleForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                                 </div>
                                                 <div className="space-y-2">
                                                     <FormLabel>Boletos</FormLabel>
                                                     {fields.map((field, index) => (
                                                         <div key={field.id} className="flex items-center gap-2">
-                                                            <FormField control={saleForm.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="No." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                            <FormField control={saleForm.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Número" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                                             <FormField control={saleForm.control} name={`tickets.${index}.fractions`} render={({ field }) => (<FormItem className="w-24"><FormControl><Input type="number" placeholder="Cant." {...field} /></FormControl><FormMessage /></FormItem>)} />
                                                             <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                                         </div>
@@ -237,7 +202,7 @@ export default function LotteryDetailPage() {
                                 <Card><CardHeader><CardTitle className="font-headline">Ventas Realizadas</CardTitle><CardDescription>Todas las ventas para el sorteo de las {time}.</CardDescription></CardHeader>
                                     <CardContent>
                                         <Table>
-                                            <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead># Boletos</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                                            <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Boletos</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                             <TableBody>
                                                 {salesForCurrentDraw.length > 0 ? (salesForCurrentDraw.map((sale) => (
                                                     <TableRow key={sale.id}>
@@ -256,69 +221,42 @@ export default function LotteryDetailPage() {
                                     </CardContent>
                                 </Card>
                             </TabsContent>
-                             <TabsContent value="winners" className="pt-6">
-                                <div className="grid gap-6">
-                                <Card><CardHeader><CardTitle className="font-headline">Ingresar Resultados</CardTitle><CardDescription>Ingresa el número ganador para ver los ganadores del sorteo de las {time}.</CardDescription></CardHeader>
-                                    <CardContent>
-                                        <Form {...resultsForm}>
-                                            <form onSubmit={resultsForm.handleSubmit(onResultsSubmit)} className="flex items-start gap-4">
-                                                <FormField control={resultsForm.control} name="winningNumber" render={({ field }) => (<FormItem className="flex-1"><FormLabel>Número Ganador</FormLabel><FormControl><Input placeholder="e.g., 42" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                <div className="pt-8"><Button type="submit"><Award className="mr-2 h-4 w-4" /> Guardar Resultado</Button></div>
-                                            </form>
-                                        </Form>
-                                    </CardContent>
-                                </Card>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="font-headline">Ganadores del Sorteo</CardTitle>
-                                        {winningNumberForCurrentDraw ? <CardDescription>Mostrando ganadores para el número <span className="font-bold text-primary">{winningNumberForCurrentDraw}</span>.</CardDescription> : <CardDescription>Ingresa un número para ver los ganadores.</CardDescription>}
-                                    </CardHeader>
-                                    <CardContent>
-                                       <Table>
-                                            <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Número Ganador</TableHead><TableHead>Fracciones</TableHead><TableHead className="text-right">Venta Total</TableHead></TableRow></TableHeader>
-                                            <TableBody>
-                                                {winningNumberForCurrentDraw && winners.length > 0 ? (winners.map((sale) => sale.tickets.filter(t => t.ticketNumber === winningNumberForCurrentDraw).map(ticket => (
-                                                    <TableRow key={ticket.id} className="bg-green-100 dark:bg-green-900">
-                                                        <TableCell>{sale.customerName || "N/A"}</TableCell>
-                                                        <TableCell className="font-mono font-bold">{ticket.ticketNumber}</TableCell>
-                                                        <TableCell>{ticket.fractions}</TableCell>
-                                                        <TableCell className="text-right">${sale.totalCost.toFixed(2)}</TableCell>
-                                                    </TableRow>
-                                                )))) : (<TableRow><TableCell colSpan={4} className="text-center h-24">{winningNumberForCurrentDraw ? "No hay ganadores." : "Esperando resultados..."}</TableCell></TableRow>)}
-                                            </TableBody>
-                                        </Table>
-                                    </CardContent>
-                                </Card>
-                                </div>
-                            </TabsContent>
                         </Tabs>
                     </TabsContent>
                 ))}
             </Tabs>
 
-            {selectedSale && <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}><DialogContent className="sm:max-w-lg">
-                <DialogHeader><DialogTitle className="font-headline">Recibo de Venta Digital</DialogTitle><DialogDescription>Lotería: {lottery.name} | Sorteo: {selectedSale.drawTime}</DialogDescription></DialogHeader>
-                <div className="flex flex-col gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><p className="font-semibold">Cliente:</p><p>{selectedSale.customerName || 'N/A'}</p><p>{selectedSale.customerPhone || ''}</p></div>
-                        <div className="text-right"><p className="font-semibold">Venta ID:</p><p className="font-mono text-xs">{selectedSale.id}</p><p className="text-xs">{new Date(selectedSale.soldAt).toLocaleString()}</p></div>
+            {selectedSale && <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}><DialogContent className="sm:max-w-xs bg-white text-black font-mono p-4">
+                <div className="text-center space-y-2 text-sm">
+                    <h2 className="text-lg font-bold">{lottery.name}</h2>
+                    <p>Sorteo: {selectedSale.drawTime}</p>
+                    <p>--------------------------------</p>
+                    <p>ID Venta: {selectedSale.id}</p>
+                    <p>Fecha: {new Date(selectedSale.soldAt).toLocaleString()}</p>
+                    <p>Cliente: {selectedSale.customerName || 'N/A'}</p>
+                    <p>--------------------------------</p>
+                    <div className="text-left">
+                        <div className="grid grid-cols-3 font-bold"><p>NUM</p><p>CANT</p><p className="text-right">COSTO</p></div>
+                        {selectedSale.tickets.map(t => <div key={t.id} className="grid grid-cols-3"><p>{t.ticketNumber}</p><p>{t.fractions}</p><p className="text-right">${t.cost.toFixed(2)}</p></div>)}
                     </div>
-                    <Table><TableHeader><TableRow><TableHead>Número</TableHead><TableHead>Fracciones</TableHead><TableHead className="text-right">Costo</TableHead></TableRow></TableHeader>
-                        <TableBody>{selectedSale.tickets.map(ticket => (<TableRow key={ticket.id}><TableCell className="font-mono font-bold text-lg">{ticket.ticketNumber}</TableCell><TableCell>{ticket.fractions}</TableCell><TableCell className="text-right">${ticket.cost.toFixed(2)}</TableCell></TableRow>))}</TableBody>
-                    </Table>
-                    <div className="text-2xl font-bold text-right mt-4">Total: <span className="text-primary">${selectedSale.totalCost.toFixed(2)}</span></div>
-                    <div className="flex justify-center pt-4"><div className="relative w-32 h-32"><Image src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`/verify?saleId=${selectedSale.id}`)}`} alt="QR Code" layout="fill" objectFit="contain" /></div></div>
+                    <p>--------------------------------</p>
+                    <p className="text-lg font-bold">TOTAL: ${selectedSale.totalCost.toFixed(2)}</p>
+                    <div className="flex justify-center pt-2"><div className="relative w-32 h-32"><Image src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/verify?saleId=${selectedSale.id}`)}`} alt="QR Code" layout="fill" objectFit="contain" /></div></div>
+                    <p className="text-xs">Verifique en linea</p>
                 </div>
-                <DialogFooter className="sm:justify-between gap-2">
-                    <Button type="button" variant="secondary" onClick={() => { toast({ title: "Not implemented." }) }}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button>
-                    <Button type="button" onClick={() => { toast({ title: "Not implemented." }) }}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+                <DialogFooter className="sm:justify-between gap-2 pt-4">
+                    <Button type="button" variant="secondary" onClick={() => handleShare(selectedSale)}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button>
+                    <Button type="button" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
                 </DialogFooter>
             </DialogContent></Dialog>}
             
             {selectedSale && <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}><DialogContent>
-                <DialogHeader><DialogTitle>Editar Venta</DialogTitle><DialogDescription>ID de Venta: {selectedSale.id}</DialogDescription></DialogHeader>
-                <Form {...editForm}>
+                 <Form {...editForm}>
                     <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <h3 className="font-headline text-lg">Editar Venta</h3>
+                            <p className="text-sm text-muted-foreground">ID: {selectedSale.id}</p>
+                        </div>
                          <div className="grid grid-cols-2 gap-4">
                             <FormField control={editForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
                             <FormField control={editForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
