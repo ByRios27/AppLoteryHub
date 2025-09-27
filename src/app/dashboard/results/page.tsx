@@ -131,10 +131,13 @@ export default function ResultsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-                <Select onValueChange={setFilterLottery} value={filterLottery}>
+                <Select 
+                  onValueChange={(value) => setFilterLottery(value === 'all' ? '' : value)}
+                  value={filterLottery || 'all'}
+                >
                     <SelectTrigger><SelectValue placeholder="Mostrar Todas" /></SelectTrigger>
                     <SelectContent>
-                         <SelectItem value="">Mostrar Todas</SelectItem>
+                         <SelectItem value="all">Mostrar Todas</SelectItem>
                         {lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
