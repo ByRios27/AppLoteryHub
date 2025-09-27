@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clover, LogOut, PanelLeft, LayoutGrid, Trophy, Settings } from "lucide-react";
+import { Clover, LogOut, PanelLeft, LayoutGrid, Trophy, Settings, QrCode } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +57,7 @@ function MainHeader() {
             <DropdownMenuItem asChild>
               <Link href="/">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>Cerrar Sesión</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -71,6 +71,7 @@ function MainSidebar() {
   const pathname = usePathname();
 
   const isActive = (path: string) => {
+    if (path === '/dashboard') return pathname.startsWith(path);
     return pathname === path;
   };
 
@@ -89,30 +90,32 @@ function MainSidebar() {
           <SidebarMenuItem>
             <Link href="/dashboard" passHref>
               <SidebarMenuButton asChild isActive={isActive('/dashboard')}
-                className={cn(isActive('/dashboard') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
-                >
-                <span><LayoutGrid />
-                Dashboard</span>
+                className={cn(isActive('/dashboard') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
+                <span><LayoutGrid />Dashboard</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/dashboard/results" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/dashboard/results')}
-                 className={cn(isActive('/dashboard/results') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
-                >
-                <span><Trophy />
-                Results</span>
+            <Link href="/results" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/results')}
+                 className={cn(isActive('/results') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
+                <span><Trophy />Resultados</span>
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <Link href="/verify" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/verify')}
+                 className={cn(isActive('/verify') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
+                <span><QrCode />Verificador</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/dashboard/settings" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/dashboard/settings')}
-                 className={cn(isActive('/dashboard/settings') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
-                >
-                <span><Settings />
-                Settings</span>
+            <Link href="/settings" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/settings')}
+                 className={cn(isActive('/settings') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
+                <span><Settings />Ajustes</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
