@@ -1,4 +1,4 @@
-'''"use client";
+"use client";
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -120,21 +120,21 @@ export default function VerifyPage() {
 
         {result && (
           <Card 
-            className={`border-2 ${
-              result.status === 'winner' ? 'border-green-500 bg-green-500/10' :
-              result.status === 'valid' ? 'border-blue-500 bg-blue-500/10' :
-              'border-red-500 bg-red-500/10'
-            }`}>
+            className={`border-2 ${{
+              'winner': 'border-green-500 bg-green-500/10',
+              'valid': 'border-blue-500 bg-blue-500/10',
+              'invalid': 'border-red-500 bg-red-500/10'
+            }[result.status]}`}>
             <CardHeader className="text-center">
                 <div className="flex justify-center items-center gap-3 mb-2">
                     {result.status === 'winner' && <Award className="h-8 w-8 text-green-500" />}
                     {result.status === 'valid' && <CheckCircle className="h-8 w-8 text-blue-500" />}
                     {result.status === 'invalid' && <XCircle className="h-8 w-8 text-red-500" />}
-                    <CardTitle className={`text-2xl ${ 
-                        result.status === 'winner' ? 'text-green-600' :
-                        result.status === 'valid' ? 'text-blue-600' :
-                        'text-red-600'
-                    }`}>{result.message}</CardTitle>
+                    <CardTitle className={`text-2xl ${{
+                        'winner': 'text-green-600',
+                        'valid': 'text-blue-600',
+                        'invalid': 'text-red-600'
+                    }[result.status]}`}>{result.message}</CardTitle>
                 </div>
             </CardHeader>
             {result.details && (
@@ -155,4 +155,3 @@ export default function VerifyPage() {
     </main>
   );
 }
-'''
