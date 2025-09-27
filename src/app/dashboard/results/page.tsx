@@ -25,6 +25,11 @@ export default function ResultsPage() {
   const { winners, addWinner, sales } = useStateContext();
   const [filteredWinners, setFilteredWinners] = useState(winners);
   const [filterLottery, setFilterLottery] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const form = useForm<z.infer<typeof addWinnerSchema>>({
     resolver: zodResolver(addWinnerSchema),
@@ -32,9 +37,11 @@ export default function ResultsPage() {
   });
 
   useEffect(() => {
-    const filtered = filterLottery ? winners.filter(w => w.lotteryId === filterLottery) : winners;
-    setFilteredWinners(filtered);
-  }, [winners, filterLottery]);
+    if (isClient) {
+      const filtered = filterLottery ? winners.filter(w => w.lotteryId === filterLottery) : winners;
+      setFilteredWinners(filtered);
+    }
+  }, [winners, filterLottery, isClient]);
 
   const handleAddWinner = (values: z.infer<typeof addWinnerSchema>) => {
     const ticketExistsInSales = sales.some(sale => 
@@ -152,7 +159,7 @@ export default function ResultsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredWinners.length > 0 ? (
+              {isClient && filteredWinners.length > 0 ? (
                 filteredWinners.map(winner => {
                   const lottery = lotteries.find(l => l.id === winner.lotteryId);
                   return (
@@ -166,7 +173,9 @@ export default function ResultsPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">No hay resultados para mostrar.</TableCell>
+                  <TableCell colSpan={4} className="text-center">
+                    {isClient ? 'No hay resultados para mostrar.' : 'Cargando...'}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
