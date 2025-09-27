@@ -87,32 +87,32 @@ function MainSidebar() {
       <SidebarContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/dashboard" legacyBehavior passHref>
-              <SidebarMenuButton isActive={isActive('/dashboard')}
+            <Link href="/dashboard" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/dashboard')}
                 className={cn(isActive('/dashboard') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
                 >
-                <LayoutGrid />
-                Dashboard
+                <span><LayoutGrid />
+                Dashboard</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/dashboard/results" legacyBehavior passHref>
-              <SidebarMenuButton isActive={isActive('/dashboard/results')}
+            <Link href="/dashboard/results" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/dashboard/results')}
                  className={cn(isActive('/dashboard/results') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
                 >
-                <Trophy />
-                Results
+                <span><Trophy />
+                Results</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/dashboard/settings" legacyBehavior passHref>
-              <SidebarMenuButton isActive={isActive('/dashboard/settings')}
+            <Link href="/dashboard/settings" passHref>
+              <SidebarMenuButton asChild isActive={isActive('/dashboard/settings')}
                  className={cn(isActive('/dashboard/settings') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}
                 >
-                <Settings />
-                Settings
+                <span><Settings />
+                Settings</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
