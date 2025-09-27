@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { lotteries, type Sale } from "@/lib/data";
+import { lotteries, type Sale, type Winner } from "@/lib/data";
 import { useStateContext } from "@/context/StateContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,16 +21,6 @@ const resultsSchema = z.object({
     prize3: z.string().length(2, "Debe tener 2 dígitos").regex(/^\d{2}$/, "Debe ser un número del 00 al 99"),
 });
 
-export type Winner = {
-    id: string;
-    prizeTier: number;
-    ticketNumber: string;
-    fractions: number;
-    customerName: string;
-    saleId: string;
-    isPaid: boolean; 
-};
-
 export default function ResultsPage() {
     const { sales, winningResults, setWinningResults, winners, setWinners } = useStateContext();
     const { toast } = useToast();
@@ -45,6 +35,24 @@ export default function ResultsPage() {
     });
     
     const resultKey = `${selectedLottery.id}-${activeDrawTime}`;
+
+    useEffect(() => {
+        // Cuando la lotería seleccionada cambia, resetea la hora del sorteo a la primera disponible para esa lotería.
+        if (selectedLottery) {
+            setActiveDrawTime(selectedLottery.drawTimes[0]);
+        }
+    }, [selectedLottery]);
+
+    useEffect(() => {
+        // Cuando el sorteo activo cambia (ya sea por cambio de lotería o de hora), 
+        // busca los resultados guardados y resetea el formulario.
+        const winningNumbers = winningResults[resultKey];
+        form.reset(
+            winningNumbers 
+                ? { prize1: winningNumbers.prize1 || "", prize2: winningNumbers.prize2 || "", prize3: winningNumbers.prize3 || "" }
+                : { prize1: "", prize2: "", prize3: "" }
+        );
+    }, [resultKey, winningResults, form]);
 
     const onSubmit = (values: z.infer<typeof resultsSchema>) => {
         setIsLoading(true);
@@ -65,8 +73,12 @@ export default function ResultsPage() {
                 if (prizeTier > 0) {
                     const existingWinner = winners.find(w => w.id === ticket.id);
                     foundWinners.push({ 
-                        id: ticket.id, prizeTier, ticketNumber: ticket.ticketNumber, fractions: ticket.fractions, 
-                        customerName: sale.customerName || "N/A", saleId: sale.id, 
+                        id: ticket.id, 
+                        prizeTier, 
+                        ticketNumber: ticket.ticketNumber, 
+                        fractions: ticket.fractions, 
+                        customerName: sale.customerName || "N/A", 
+                        saleId: sale.id, 
                         isPaid: existingWinner?.isPaid || false, 
                     });
                 }
@@ -74,10 +86,16 @@ export default function ResultsPage() {
         });
         
         setTimeout(() => {
-            const newWinners = [...winners.filter(w => { const [lotId, drawTime] = resultKey.split('-'); const s = sales.find(s => s.id === w.saleId); return s?.lotteryId !== lotId || s?.drawTime !== drawTime; }), ...foundWinners];
+            // Filtra los ganadores antiguos para mantener solo los que no pertenecen al sorteo actual
+            const otherWinners = winners.filter(w => {
+                const saleOfWinner = sales.find(s => s.id === w.saleId);
+                return saleOfWinner?.lotteryId !== selectedLottery.id || saleOfWinner?.drawTime !== activeDrawTime;
+            });
+
+            const newWinners = [...otherWinners, ...foundWinners];
             setWinners(newWinners);
             setIsLoading(false);
-            toast({ title: "Ganadores Determinados", description: `Se encontraron ${foundWinners.length} boletos ganadores.` });
+            toast({ title: "Ganadores Determinados", description: `Se encontraron ${foundWinners.length} boletos ganadores para ${selectedLottery.name} a las ${activeDrawTime}.` });
         }, 500);
     };
     
@@ -92,42 +110,71 @@ export default function ResultsPage() {
         setWinners(prev => prev.map(w => w.id === ticketId ? { ...w, isPaid: !w.isPaid } : w));
     };
 
-    useEffect(() => {
-        const winningNumbers = winningResults[resultKey];
-        if (winningNumbers) {
-            form.reset({ prize1: winningNumbers.prize1 || "", prize2: winningNumbers.prize2 || "", prize3: winningNumbers.prize3 || "" });
-        } else {
-            form.reset({ prize1: "", prize2: "", prize3: "" });
-        }
-    }, [activeDrawTime, selectedLottery, resultKey, winningResults, form]);
-
-
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold font-headline">Resultados del Sorteo</h1>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Seleccionar Lotería y Sorteo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {lotteries.map(lottery => (
-                        <div key={lottery.id} className="mb-4">
-                            <h2 className="text-xl font-semibold font-headline mb-2">{lottery.name}</h2>
-                            <Tabs defaultValue={lottery.drawTimes[0]} onValueChange={(time) => { setSelectedLottery(lottery); setActiveDrawTime(time); }} className="w-full">
-                                <TabsList>{lottery.drawTimes.map(time => <TabsTrigger key={time} value={time}>{time}</TabsTrigger>)}</TabsList>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Paso 1: Seleccionar Lotería</CardTitle>
+                        <CardDescription>Elija la lotería para la cual desea ingresar los resultados.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Tabs
+                            defaultValue={selectedLottery.id}
+                            onValueChange={(lotteryId) => {
+                                const newLottery = lotteries.find(l => l.id === lotteryId);
+                                if (newLottery) {
+                                    setSelectedLottery(newLottery);
+                                }
+                            }}
+                            className="w-full"
+                        >
+                            <TabsList className="grid w-full grid-cols-2">
+                                {lotteries.map(lottery => (
+                                    <TabsTrigger key={lottery.id} value={lottery.id}>
+                                        {lottery.name}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </Tabs>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Paso 2: Seleccionar Sorteo</CardTitle>
+                        <CardDescription>Sorteos para: <span className="font-semibold">{selectedLottery.name}</span></CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {selectedLottery && activeDrawTime && (
+                             <Tabs
+                                value={activeDrawTime}
+                                onValueChange={setActiveDrawTime}
+                                className="w-full"
+                            >
+                                <TabsList className="grid w-full grid-cols-3">
+                                    {selectedLottery.drawTimes.map(time => (
+                                        <TabsTrigger key={time} value={time}>
+                                            {time}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
                             </Tabs>
-                        </div>
-                    ))}
-                </CardContent>
-            </Card>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
             
             <div className="grid md:grid-cols-3 gap-8 mt-4">
                 <div className="md:col-span-1">
                     <Card>
-                        <CardHeader><CardTitle>Ingresar Números Ganadores</CardTitle><CardDescription>Para el sorteo de las {activeDrawTime}.</CardDescription></CardHeader>
+                        <CardHeader>
+                            <CardTitle>Ingresar Números Ganadores</CardTitle>
+                            <CardDescription>Para <span className="font-semibold">{selectedLottery.name}</span> a las <span className="font-semibold">{activeDrawTime}</span>.</CardDescription>
+                        </CardHeader>
                         <CardContent>
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -143,7 +190,10 @@ export default function ResultsPage() {
 
                 <div className="md:col-span-2">
                     <Card>
-                        <CardHeader><CardTitle>Ganadores</CardTitle><CardDescription>Boletos ganadores para el sorteo de las {activeDrawTime}.</CardDescription></CardHeader>
+                        <CardHeader>
+                            <CardTitle>Ganadores</CardTitle>
+                            <CardDescription>Boletos ganadores para <span className="font-semibold">{selectedLottery.name}</span> del sorteo de las <span className="font-semibold">{activeDrawTime}</span>.</CardDescription>
+                        </CardHeader>
                         <CardContent>
                             <Table>
                                 <TableHeader><TableRow><TableHead>Premio</TableHead><TableHead># Boleto</TableHead><TableHead>Cliente</TableHead><TableHead>Fracciones</TableHead><TableHead className="text-right">Estado</TableHead></TableRow></TableHeader>
@@ -163,7 +213,7 @@ export default function ResultsPage() {
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No se encontraron ganadores para estos números.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No se encontraron ganadores para este sorteo.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>

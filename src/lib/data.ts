@@ -24,6 +24,16 @@ export interface Sale {
   soldAt: Date;
 }
 
+export type Winner = {
+    id: string;
+    prizeTier: number;
+    ticketNumber: string;
+    fractions: number;
+    customerName: string;
+    saleId: string;
+    isPaid: boolean; 
+};
+
 export const lotteries: Lottery[] = [
   {
     id: "loto-diaria",

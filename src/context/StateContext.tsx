@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { Sale, TicketDetail } from '@/lib/data';
-import type { Winner } from '@/app/results/page';
+import type { Sale, TicketDetail, Winner } from '@/lib/data';
 
 type WinningResults = {
   [key: string]: {

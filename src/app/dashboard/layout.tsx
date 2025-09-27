@@ -1,139 +1,54 @@
-'use client';
+''''use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clover, LogOut, PanelLeft, LayoutGrid, Trophy, Settings, QrCode } from "lucide-react";
+import {
+  Clover,
+  LogOut,
+  PanelLeft,
+  LayoutGrid,
+  Trophy,
+  Settings,
+  QrCode,
+  Home,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarFooter,
-  SidebarInset,
-  useSidebar,
-} from "@/components/ui/sidebar";
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-function MainHeader() {
-  const { toggleSidebar } = useSidebar();
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Loterías", icon: LayoutGrid },
+  { href: "/dashboard/results", label: "Resultados", icon: Trophy },
+  { href: "/dashboard/verify", label: "Verificar", icon: QrCode },
+  { href: "/dashboard/settings", label: "Ajustes", icon: Settings },
+];
+
+function NavLink({ href, label, icon: Icon, isActive }: { href: string; label: string; icon: React.ElementType; isActive: boolean; }) {
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={toggleSidebar}
-      >
-        <PanelLeft />
-        <span className="sr-only">Toggle Sidebar</span>
-      </Button>
-      <div className="flex w-full items-center justify-end gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src="https://i.pravatar.cc/150?u=admin" alt="@admin" />
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Admin</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  admin@lottohub.com
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Cerrar Sesión</span>
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
-  );
-}
-
-function MainSidebar() {
-  const pathname = usePathname();
-
-  const isActive = (path: string) => {
-    if (path === '/dashboard') return pathname.startsWith(path);
-    return pathname === path;
-  };
-
-  return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-10 w-10 text-primary">
-            <Clover className="h-8 w-8" />
-          </Button>
-          <span className="truncate text-lg font-headline font-semibold">Lotto Hub</span>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <Link href="/dashboard" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/dashboard')}
-                className={cn(isActive('/dashboard') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
-                <span><LayoutGrid />Dashboard</span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <Link href="/results" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/results')}
-                 className={cn(isActive('/results') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
-                <span><Trophy />Resultados</span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-           <SidebarMenuItem>
-            <Link href="/verify" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/verify')}
-                 className={cn(isActive('/verify') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
-                <span><QrCode />Verificador</span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <Link href="/settings" passHref>
-              <SidebarMenuButton asChild isActive={isActive('/settings')}
-                 className={cn(isActive('/settings') && "bg-primary/20 text-primary hover:bg-primary/25 hover:text-primary")}>
-                <span><Settings />Ajustes</span>
-              </SidebarMenuButton>
-            </Link>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-         <div className="flex items-center gap-2 p-2">
-             <Avatar className="h-8 w-8">
-                <AvatarImage src="https://i.pravatar.cc/150?u=admin" alt="@admin" />
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">Admin</span>
-                <span className="text-xs text-muted-foreground">admin</span>
-              </div>
-         </div>
-      </SidebarFooter>
-    </Sidebar>
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+        isActive && "bg-muted text-primary"
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
   );
 }
 
@@ -142,15 +57,102 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  const isActive = (path: string) => {
+    if (path === '/dashboard') {
+        // Only return true if the path is exactly "/dashboard" or starts with "/dashboard/lottery"
+        return pathname === '/dashboard' || pathname.startsWith('/dashboard/lottery');
+    }
+    return pathname.startsWith(path);
+  };
+
+  const desktopNav = (
+    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+      {NAV_ITEMS.map((item) => (
+        <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
+      ))}
+    </nav>
+  );
+
+  const mobileNav = (
+    <nav className="grid gap-2 text-lg font-medium">
+      <Link
+          href="#"
+          className="flex items-center gap-2 text-lg font-semibold mb-4"
+        >
+          <Clover className="h-6 w-6 text-primary" />
+          <span className="font-headline">Lotto Hub</span>
+      </Link>
+      {NAV_ITEMS.map((item) => (
+        <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
+      ))}
+    </nav>
+  );
+
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <MainSidebar />
-        <div className="flex-1 flex flex-col">
-          <MainHeader />
-          <SidebarInset>{children}</SidebarInset>
+    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+      <div className="hidden border-r bg-muted/40 md:block">
+        <div className="flex h-full max-h-screen flex-col gap-2">
+          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Clover className="h-6 w-6 text-primary" />
+              <span className="font-headline">Lotto Hub</span>
+            </Link>
+          </div>
+          <div className="flex-1">
+            {desktopNav}
+          </div>
         </div>
       </div>
-    </SidebarProvider>
+      <div className="flex flex-col">
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden"
+              >
+                <PanelLeft className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col">
+                {mobileNav}
+            </SheetContent>
+          </Sheet>
+          <div className="w-full flex-1" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="https://i.pravatar.cc/150?u=admin" alt="@admin" />
+                  <AvatarFallback>A</AvatarFallback>
+                </Avatar>
+                <span className="sr-only">Toggle user menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Ajustes</DropdownMenuItem>
+              <DropdownMenuItem>Soporte</DropdownMenuItem>
+              <DropdownMenuSeparator />
+               <DropdownMenuItem asChild>
+                  <Link href="/">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesión</span>
+                  </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+            {children}
+        </main>
+      </div>
+    </div>
   );
 }
+'''

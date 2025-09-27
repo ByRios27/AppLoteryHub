@@ -1,4 +1,4 @@
-"use client";
+'''"use client";
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { CheckCircle, XCircle, HelpCircle, Award } from 'lucide-react';
+import { CheckCircle, XCircle, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const verifySchema = z.object({
@@ -145,7 +145,7 @@ export default function VerifyPage() {
                 <div className="font-semibold">Número Jugado:</div><div className="font-mono text-base font-bold">{result.details.ticketNumber}</div>
                 <div className="font-semibold">Fracciones:</div><div>{result.details.fractions}</div>
                 <div className="font-semibold">Fecha de Venta:</div><div>{result.details.soldAt}</div>
-                {result.details.prizeTier && <div className="font-semibold">Premio:</div><div><Badge>Premio {result.details.prizeTier}</Badge></div>}
+                {result.details.prizeTier && <><div className="font-semibold">Premio:</div><div><Badge>Premio {result.details.prizeTier}</Badge></div></>}
               </CardContent>
             )}
           </Card>
@@ -155,3 +155,4 @@ export default function VerifyPage() {
     </main>
   );
 }
+'''
