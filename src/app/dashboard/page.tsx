@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { lotteries as initialLotteries, type Lottery } from '@/lib/data';
-import { Card, CardContent } from '@/components/ui/card';
 import { iconMap } from '@/lib/icon-map';
 
 export default function DashboardPage() {
@@ -19,15 +18,15 @@ export default function DashboardPage() {
           const Icon = iconMap[lottery.icon] || iconMap.Ticket;
           return (
             <Link href={`/dashboard/lottery/${lottery.id}`} key={lottery.id} className="group">
-              <Card className="hover:bg-primary/10 hover:border-primary transition-colors h-full flex flex-col justify-center items-center text-center p-6">
+              <div className="transition-colors h-full flex flex-col justify-center items-center text-center p-6 rounded-lg hover:bg-primary/10">
                 <div className="flex items-center justify-center h-20 w-20 rounded-full bg-primary/20 group-hover:bg-primary/30 mb-4 transition-colors">
                   <Icon className="h-10 w-10 text-primary" />
                 </div>
-                <CardContent className="p-0 flex flex-col items-center">
+                <div className="p-0 flex flex-col items-center">
                   <h3 className="font-headline text-xl font-semibold text-foreground">{lottery.name}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{lottery.drawTimes.length > 1 ? `${lottery.drawTimes.length} sorteos hoy` : lottery.drawTimes[0]}</p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </Link>
           );
         })}
