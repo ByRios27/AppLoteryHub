@@ -43,7 +43,12 @@ function getStoredData<T>(key: string, defaultValue: T): T {
   if (!savedData) return defaultValue;
 
   try {
-    return JSON.parse(savedData);
+    const parsed = JSON.parse(savedData);
+    // Basic validation to check if the parsed data has the expected shape, prevents crashes
+    if (typeof parsed === typeof defaultValue && parsed !== null) {
+      return parsed;
+    }
+    return defaultValue;
   } catch (error) {
     console.error(`Error parsing ${key} from localStorage`, error);
     localStorage.removeItem(key); 
@@ -55,32 +60,37 @@ const cleanOldData = () => {
     if (typeof window === 'undefined') return;
     const now = new Date();
 
-    // Clean Sales (older than 12 hours)
-    const sales = getStoredData<Sale[]>('lotterySales', []);
-    const validSales = sales.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
-    localStorage.setItem('lotterySales', JSON.stringify(validSales));
+    try {
+      // Clean Sales (older than 12 hours)
+      const sales = getStoredData<Sale[]>('lotterySales', []);
+      const validSales = sales.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
+      localStorage.setItem('lotterySales', JSON.stringify(validSales));
 
-    // Clean Winners (older than 24 hours)
-    const winners = getStoredData<Winner[]>('lotteryWinners', []);
-    const validWinners = winners.filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
-    localStorage.setItem('lotteryWinners', JSON.stringify(validWinners));
+      // Clean Winners (older than 24 hours)
+      const winners = getStoredData<Winner[]>('lotteryWinners', []);
+      const validWinners = winners.filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
+      localStorage.setItem('lotteryWinners', JSON.stringify(validWinners));
 
-    // Clean Winning Results (older than 7 days)
-    const results = getStoredData<WinningResults>('winningResults', {});
-    const validResults: WinningResults = {};
-    const sevenDaysAgo = subDays(now, 7);
+      // Clean Winning Results (older than 7 days)
+      const results = getStoredData<WinningResults>('winningResults', {});
+      const validResults: WinningResults = {};
+      const sevenDaysAgo = subDays(now, 7);
 
-    Object.entries(results).forEach(([dateStr, dailyResults]) => {
-        if (new Date(dateStr) >= sevenDaysAgo) {
-            validResults[dateStr] = dailyResults;
-        }
-    });
-    localStorage.setItem('winningResults', JSON.stringify(validResults));
+      Object.entries(results).forEach(([dateStr, dailyResults]) => {
+          if (new Date(dateStr) >= sevenDaysAgo) {
+              validResults[dateStr] = dailyResults;
+          }
+      });
+      localStorage.setItem('winningResults', JSON.stringify(validResults));
+    } catch (error) {
+        console.error("Error cleaning old data from localStorage", error);
+    }
 };
 
 
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
+    // Run cleaning logic only once on initial mount
     cleanOldData();
   }, []);
 
@@ -92,11 +102,46 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sellerId] = useState<string>('ventas01');
 
 
-  useEffect(() => localStorage.setItem('lotterySales', JSON.stringify(sales)), [sales]);
-  useEffect(() => localStorage.setItem('winningResults', JSON.stringify(winningResults)), [winningResults]);
-  useEffect(() => localStorage.setItem('lotteryWinners', JSON.stringify(winners)), [winners]);
-  useEffect(() => localStorage.setItem('appLotteries', JSON.stringify(lotteries)), [lotteries]);
-  useEffect(() => localStorage.setItem('appCustomization', JSON.stringify(appCustomization)), [appCustomization]);
+  useEffect(() => {
+    try {
+        localStorage.setItem('lotterySales', JSON.stringify(sales));
+    } catch (e) {
+        console.error("Failed to save sales to localStorage", e);
+    }
+  }, [sales]);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('winningResults', JSON.stringify(winningResults));
+    } catch (e) {
+        console.error("Failed to save winning results to localStorage", e);
+    }
+  }, [winningResults]);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('lotteryWinners', JSON.stringify(winners));
+    } catch (e) {
+        console.error("Failed to save winners to localStorage", e);
+    }
+  }, [winners]);
+  
+  useEffect(() => {
+    try {
+        localStorage.setItem('appLotteries', JSON.stringify(lotteries));
+    } catch (e) {
+        console.error("Failed to save lotteries to localStorage", e);
+    }
+  }, [lotteries]);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
+    } catch (e) {
+        console.error("Failed to save app customization to localStorage", e);
+    }
+  }, [appCustomization]);
+
 
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
