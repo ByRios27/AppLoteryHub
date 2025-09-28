@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { useStateContext } from "@/context/StateContext"; // Importar el contexto
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Loterías", icon: LayoutGrid },
+  { href: "/dashboard/lotteries", label: "Loterías", icon: LayoutGrid },
   { href: "/dashboard/sales", label: "Ventas", icon: ClipboardList },
   { href: "/dashboard/results", label: "Resultados", icon: Trophy },
   { href: "/dashboard/verify", label: "Verificar", icon: QrCode },
@@ -62,12 +62,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { appCustomization } = useStateContext(); // Obtener personalización del contexto
 
-  const isActive = (path: string) => {
-    if (path === '/dashboard') {
-        return pathname === '/dashboard' || pathname.startsWith('/dashboard/lottery');
-    }
-    return pathname.startsWith(path);
-  };
+  const isActive = (path: string) => pathname.startsWith(path);
 
   const AppLogoAndName = () => (
     <div className="flex items-center gap-2 font-semibold">
@@ -107,7 +102,7 @@ export default function DashboardLayout({
       <div className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <Link href="/dashboard/lotteries" className="flex items-center gap-2 font-semibold">
               <AppLogoAndName />
             </Link>
           </div>
