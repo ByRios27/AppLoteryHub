@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { Sale, Winner } from '@/lib/data';
+import { Sale, Winner, Lottery, lotteries as initialLotteries } from '@/lib/data';
 
 type WinningResults = {
   [key: string]: {
@@ -18,6 +18,8 @@ interface StateContextType {
   setWinningResults: React.Dispatch<React.SetStateAction<WinningResults>>;
   winners: Winner[];
   addWinner: (ticketId: string, lotteryId: string, ticketNumber: string, prizeTier: number) => void;
+  lotteries: Lottery[];
+  setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
 }
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
@@ -35,13 +37,15 @@ function getStoredData<T>(key: string, defaultValue: T): T {
 
   try {
     const parsedData = JSON.parse(savedData);
-    // For arrays, ensure it's actually an array before returning
     if (Array.isArray(defaultValue) && !Array.isArray(parsedData)) {
+        // If we expect an array and don't get one, return the default
         return defaultValue;
     }
     return parsedData;
   } catch (error) {
     console.error(`Error parsing ${key} from localStorage`, error);
+    // On error, return the default value to prevent app crash
+    localStorage.removeItem(key); // Clear corrupted data
     return defaultValue;
   }
 }
@@ -50,6 +54,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>(() => getStoredData('lotterySales', []));
   const [winningResults, setWinningResults] = useState<WinningResults>(() => getStoredData('winningResults', {}));
   const [winners, setWinners] = useState<Winner[]>(() => getStoredData('lotteryWinners', []));
+  const [lotteries, setLotteries] = useState<Lottery[]>(() => getStoredData('appLotteries', initialLotteries));
 
   useEffect(() => {
     localStorage.setItem('lotterySales', JSON.stringify(sales));
@@ -60,11 +65,14 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   }, [winningResults]);
 
   useEffect(() => {
-    // Ensure winners is always an array before setting to localStorage
     if (Array.isArray(winners)) {
       localStorage.setItem('lotteryWinners', JSON.stringify(winners));
     }
   }, [winners]);
+
+  useEffect(() => {
+    localStorage.setItem('appLotteries', JSON.stringify(lotteries));
+  }, [lotteries]);
 
   const addWinner = (ticketId: string, lotteryId: string, ticketNumber: string, prizeTier: number) => {
     const newWinner: Winner = {
@@ -85,7 +93,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, addWinner }}>
+    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, addWinner, lotteries, setLotteries }}>
       {children}
     </StateContext.Provider>
   );

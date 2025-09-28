@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useStateContext } from '@/context/StateContext';
-import { lotteries } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -15,17 +14,17 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
-// Schema dinámico con superRefine
-const registerDrawSchema = z.object({
+// El schema ahora recibe las loterías como argumento para la validación dinámica
+const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
   firstPrizeNumber: z.string(),
   secondPrizeNumber: z.string(),
   thirdPrizeNumber: z.string(),
 }).superRefine((data, ctx) => {
-  if (!data.lotteryId) return; // Si no hay lotería, no hagas nada más
+  if (!data.lotteryId) return;
 
   const lottery = lotteries.find(l => l.id === data.lotteryId);
-  if (!lottery) return; // Si la lotería no se encuentra, no valides los números
+  if (!lottery) return; // Lotería no encontrada
 
   const { numberOfDigits } = lottery;
   const prizeFields: ('firstPrizeNumber' | 'secondPrizeNumber' | 'thirdPrizeNumber')[] = ['firstPrizeNumber', 'secondPrizeNumber', 'thirdPrizeNumber'];
@@ -52,15 +51,18 @@ const registerDrawSchema = z.object({
 });
 
 export default function ResultsPage() {
-  const { winners, addWinner, sales } = useStateContext();
+  const { winners, addWinner, sales, lotteries } = useStateContext(); // Usar loterías del contexto
   const [filteredWinners, setFilteredWinners] = useState(winners);
   const [filterLottery, setFilterLottery] = useState('');
   const [isClient, setIsClient] = useState(false);
-  const [selectedLotteryDigits, setSelectedLotteryDigits] = useState<number>(4);
+  const [selectedLotteryDigits, setSelectedLotteryDigits] = useState<number | undefined>();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // El schema de validación se crea con las loterías del contexto
+  const registerDrawSchema = createRegisterDrawSchema(lotteries);
 
   const form = useForm<z.infer<typeof registerDrawSchema>>({
     resolver: zodResolver(registerDrawSchema),
@@ -79,15 +81,15 @@ export default function ResultsPage() {
     if (lottery) {
         setSelectedLotteryDigits(lottery.numberOfDigits);
         form.reset({ 
-            ...form.getValues(), 
+            lotteryId: lottery.id,
             firstPrizeNumber: '', 
             secondPrizeNumber: '', 
             thirdPrizeNumber: '' 
         });
     } else {
-        setSelectedLotteryDigits(4); // Resetea a un valor por defecto si no hay lotería
+        setSelectedLotteryDigits(undefined);
     }
-}, [lotteryId, form]);
+}, [lotteryId, form, lotteries]);
 
   useEffect(() => {
     if (isClient) {
@@ -169,7 +171,7 @@ export default function ResultsPage() {
                       <FormLabel>Número del 1er Premio</FormLabel>
                       <FormControl>
                         <Input 
-                            placeholder={`Ej: ${'12345'.slice(0, selectedLotteryDigits)}`} 
+                            placeholder={selectedLotteryDigits ? `Ej: ${'12345'.slice(0, selectedLotteryDigits)}` : "Selecciona una lotería"}
                             {...field} 
                             disabled={!lotteryId}
                         />
@@ -186,7 +188,7 @@ export default function ResultsPage() {
                       <FormLabel>Número del 2do Premio</FormLabel>
                       <FormControl>
                         <Input 
-                            placeholder={`Ej: ${'67890'.slice(0, selectedLotteryDigits)}`} 
+                            placeholder={selectedLotteryDigits ? `Ej: ${'67890'.slice(0, selectedLotteryDigits)}` : "Selecciona una lotería"}
                             {...field} 
                             disabled={!lotteryId}
                         />
@@ -203,7 +205,7 @@ export default function ResultsPage() {
                       <FormLabel>Número del 3er Premio</FormLabel>
                       <FormControl>
                         <Input 
-                            placeholder={`Ej: ${'11223'.slice(0, selectedLotteryDigits)}`} 
+                            placeholder={selectedLotteryDigits ? `Ej: ${'11223'.slice(0, selectedLotteryDigits)}` : "Selecciona una lotería"}
                             {...field} 
                             disabled={!lotteryId}
                         />

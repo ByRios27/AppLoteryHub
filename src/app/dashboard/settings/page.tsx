@@ -12,7 +12,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
+import { useStateContext } from "@/context/StateContext"; // Importar el contexto
+import { type Lottery } from "@/lib/data";
 import { iconMap } from "@/lib/icon-map";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,7 +32,7 @@ const newUserSchema = z.object({
 
 
 export default function SettingsPage() {
-  const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
+  const { lotteries, setLotteries } = useStateContext(); // Usar el estado global
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [appName, setAppName] = useState("Lotto Hub");
   const timeSlots = generateTimeSlots();
@@ -54,7 +55,7 @@ export default function SettingsPage() {
   
   const newLotteryForm = useForm<z.infer<typeof newLotterySchema>>({
     resolver: zodResolver(newLotterySchema),
-    defaultValues: { name: "", drawTimes: [], numberOfDigits: 2 },
+    defaultValues: { name: "", drawTimes: [], numberOfDigits: 4 },
   });
 
   const newUserForm = useForm<z.infer<typeof newUserSchema>>({
@@ -66,15 +67,15 @@ export default function SettingsPage() {
      const newLottery: Lottery = {
        id: values.name.toLowerCase().replace(/\s/g, '-'),
        name: values.name,
-       icon: 'Ticket', // Using a default icon for new lotteries
-       drawTimes: values.drawTimes.filter(t => t && t !== 'none'), // Filter out empty strings
+       icon: 'Ticket', 
+       drawTimes: values.drawTimes.filter(t => t && t !== 'none'),
        numberOfDigits: values.numberOfDigits,
      };
 
      setLotteries([...lotteries, newLottery]);
 
      toast.success("Nuevo Sorteo Añadido", {
-        description: `El sorteo '${values.name}' con horarios a las ${values.drawTimes.join(', ')} ha sido creado.`,
+        description: `El sorteo '${values.name}' ha sido creado.`,
       });
       newLotteryForm.reset();
   }
@@ -89,10 +90,7 @@ export default function SettingsPage() {
   const handleLotteryUpdate = (index: number, field: keyof Lottery, value: string | string[] | number) => {
     const updatedLotteries = lotteries.map((lottery, i) => {
       if (i === index) {
-        return {
-          ...lottery,
-          [field]: value,
-        };
+        return { ...lottery, [field]: value };
       }
       return lottery;
     });
@@ -104,18 +102,15 @@ export default function SettingsPage() {
       const file = e.target.files[0];
       const reader = new FileReader();
       reader.onloadend = () => {
-        const newLotteries = [...lotteries];
-        newLotteries[lotteryIndex] = {
-          ...newLotteries[lotteryIndex],
-          icon: reader.result as string,
-        };
-        setLotteries(newLotteries);
+        handleLotteryUpdate(lotteryIndex, 'icon', reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSaveLottery = (lotteryName: string) => {
+    // Como ahora usamos el contexto, el guardado es implícito.
+    // La notificación confirma la acción del usuario.
     toast.success("Cambios Guardados", {
         description: `Los cambios en el sorteo '${lotteryName}' han sido guardados.`,
     });
@@ -240,7 +235,7 @@ export default function SettingsPage() {
                                                 </FormControl>
                                                 <SelectContent>
                                                     <SelectItem value="none">Ninguno</SelectItem>
-                                                    {timeSlots.map(slot => (
+                                                    {generateTimeSlots().map(slot => (
                                                         <SelectItem key={slot} value={slot}>{slot}</SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -271,7 +266,7 @@ export default function SettingsPage() {
                                     <CardHeader className="flex flex-row items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             {lottery.icon.startsWith('data:') ? (
-                                                <img src={lottery.icon} className="h-6 w-6" />
+                                                <img src={lottery.icon} alt={lottery.name} className="h-6 w-6" />
                                             ) : (
                                                 Icon && <Icon className="h-6 w-6 text-primary" />
                                             )}
@@ -310,18 +305,18 @@ export default function SettingsPage() {
                                                     <Select 
                                                         key={timeIndex} 
                                                         onValueChange={(value) => {
-                                                            const newDrawTimes = [...lottery.drawTimes];
+                                                            const newDrawTimes = [...(lottery.drawTimes || [])];
                                                             newDrawTimes[timeIndex] = value;
                                                             handleLotteryUpdate(index, 'drawTimes', newDrawTimes.filter(t => t && t !== 'none'));
                                                         }} 
-                                                        value={lottery.drawTimes[timeIndex] || ""}
+                                                        value={lottery.drawTimes?.[timeIndex] || ""}
                                                     >
                                                         <SelectTrigger>
                                                             <SelectValue placeholder={`Horario ${timeIndex+1}`} />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem value="none">Ninguno</SelectItem>
-                                                            {timeSlots.map(slot => (
+                                                            {generateTimeSlots().map(slot => (
                                                                 <SelectItem key={slot} value={slot}>{slot}</SelectItem>
                                                             ))}
                                                         </SelectContent>

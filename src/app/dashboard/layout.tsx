@@ -10,7 +10,7 @@ import {
   Trophy,
   Settings,
   QrCode,
-  Home,
+  ClipboardList, // Añadido para el nuevo ítem
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Loterías", icon: LayoutGrid },
+  { href: "/dashboard/sales", label: "Ventas", icon: ClipboardList },
   { href: "/dashboard/results", label: "Resultados", icon: Trophy },
   { href: "/dashboard/verify", label: "Verificar", icon: QrCode },
   { href: "/dashboard/settings", label: "Ajustes", icon: Settings },
@@ -61,7 +62,6 @@ export default function DashboardLayout({
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
-        // Only return true if the path is exactly "/dashboard" or starts with "/dashboard/lottery"
         return pathname === '/dashboard' || pathname.startsWith('/dashboard/lottery');
     }
     return pathname.startsWith(path);
@@ -78,7 +78,7 @@ export default function DashboardLayout({
   const mobileNav = (
     <nav className="grid gap-2 text-lg font-medium">
       <Link
-          href="#"
+          href="/dashboard" // Corregido
           className="flex items-center gap-2 text-lg font-semibold mb-4"
         >
           <Clover className="h-6 w-6 text-primary" />
@@ -95,7 +95,7 @@ export default function DashboardLayout({
       <div className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Link href="/dashboard" className="flex items-center gap-2 font-semibold"> {/* Corregido */}
               <Clover className="h-6 w-6 text-primary" />
               <span className="font-headline">Lotto Hub</span>
             </Link>
@@ -136,7 +136,9 @@ export default function DashboardLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Ajustes</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">Ajustes</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Soporte</DropdownMenuItem>
               <DropdownMenuSeparator />
                <DropdownMenuItem asChild>
