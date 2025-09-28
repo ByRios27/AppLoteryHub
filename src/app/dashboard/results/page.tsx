@@ -15,11 +15,40 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
+// Schema dinámico con superRefine
 const registerDrawSchema = z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
-  firstPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
-  secondPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
-  thirdPrizeNumber: z.string().length(4, "El número debe tener 4 dígitos."),
+  firstPrizeNumber: z.string(),
+  secondPrizeNumber: z.string(),
+  thirdPrizeNumber: z.string(),
+}).superRefine((data, ctx) => {
+  if (!data.lotteryId) return; // Si no hay lotería, no hagas nada más
+
+  const lottery = lotteries.find(l => l.id === data.lotteryId);
+  if (!lottery) return; // Si la lotería no se encuentra, no valides los números
+
+  const { numberOfDigits } = lottery;
+  const prizeFields: ('firstPrizeNumber' | 'secondPrizeNumber' | 'thirdPrizeNumber')[] = ['firstPrizeNumber', 'secondPrizeNumber', 'thirdPrizeNumber'];
+  
+  for (const field of prizeFields) {
+    if (data[field].length === 0) {
+       ctx.addIssue({
+          code: z.ZodIssueCode.too_small,
+          minimum: 1,
+          type: 'string',
+          inclusive: true,
+          message: 'El número no puede estar vacío.',
+          path: [field],
+        });
+    } else if (data[field].length !== numberOfDigits) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.invalid_string,
+        validation: 'length',
+        message: `El número debe tener ${numberOfDigits} dígitos.`,
+        path: [field],
+      });
+    }
+  }
 });
 
 export default function ResultsPage() {
@@ -27,6 +56,7 @@ export default function ResultsPage() {
   const [filteredWinners, setFilteredWinners] = useState(winners);
   const [filterLottery, setFilterLottery] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [selectedLotteryDigits, setSelectedLotteryDigits] = useState<number>(4);
 
   useEffect(() => {
     setIsClient(true);
@@ -41,6 +71,23 @@ export default function ResultsPage() {
       thirdPrizeNumber: '' 
     },
   });
+
+  const lotteryId = form.watch('lotteryId');
+
+  useEffect(() => {
+    const lottery = lotteries.find(l => l.id === lotteryId);
+    if (lottery) {
+        setSelectedLotteryDigits(lottery.numberOfDigits);
+        form.reset({ 
+            ...form.getValues(), 
+            firstPrizeNumber: '', 
+            secondPrizeNumber: '', 
+            thirdPrizeNumber: '' 
+        });
+    } else {
+        setSelectedLotteryDigits(4); // Resetea a un valor por defecto si no hay lotería
+    }
+}, [lotteryId, form]);
 
   useEffect(() => {
     if (isClient) {
@@ -121,7 +168,11 @@ export default function ResultsPage() {
                     <FormItem>
                       <FormLabel>Número del 1er Premio</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ej: 0524" {...field} />
+                        <Input 
+                            placeholder={`Ej: ${'12345'.slice(0, selectedLotteryDigits)}`} 
+                            {...field} 
+                            disabled={!lotteryId}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -134,7 +185,11 @@ export default function ResultsPage() {
                     <FormItem>
                       <FormLabel>Número del 2do Premio</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ej: 1190" {...field} />
+                        <Input 
+                            placeholder={`Ej: ${'67890'.slice(0, selectedLotteryDigits)}`} 
+                            {...field} 
+                            disabled={!lotteryId}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -147,13 +202,17 @@ export default function ResultsPage() {
                     <FormItem>
                       <FormLabel>Número del 3er Premio</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ej: 8345" {...field} />
+                        <Input 
+                            placeholder={`Ej: ${'11223'.slice(0, selectedLotteryDigits)}`} 
+                            {...field} 
+                            disabled={!lotteryId}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit">Registrar Ganadores</Button>
+                <Button type="submit" disabled={!lotteryId}>Registrar Ganadores</Button>
               </form>
             </Form>
           </CardContent>

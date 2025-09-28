@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { lotteries as initialLotteries, type Lottery } from "@/lib/data";
 import { iconMap } from "@/lib/icon-map";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,6 @@ const newUserSchema = z.object({
 
 
 export default function SettingsPage() {
-  const { toast } = useToast();
   const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [appName, setAppName] = useState("Lotto Hub");
@@ -41,16 +40,14 @@ export default function SettingsPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setLogoFile(file);
-      toast({
-        title: "Archivo listo para subir",
+      toast.info("Archivo listo para subir", {
         description: `${file.name} será guardado al hacer clic en \"Guardar Cambios.\"`,
       });
     }
   };
 
   const handleSaveCustomization = () => {
-    toast({
-        title: "Personalización Guardada (Simulado)",
+    toast.success("Personalización Guardada", {
         description: `El título de la aplicación y el logo han sido guardados.`,
     });
   }
@@ -76,16 +73,14 @@ export default function SettingsPage() {
 
      setLotteries([...lotteries, newLottery]);
 
-     toast({
-        title: "Nuevo Sorteo Añadido (Simulado)",
+     toast.success("Nuevo Sorteo Añadido", {
         description: `El sorteo '${values.name}' con horarios a las ${values.drawTimes.join(', ')} ha sido creado.`,
       });
       newLotteryForm.reset();
   }
   
   const onNewUserSubmit = (values: z.infer<typeof newUserSchema>) => {
-     toast({
-        title: "Nuevo Usuario Añadido (Simulado)",
+     toast.success("Nuevo Usuario Añadido", {
         description: `El usuario '${values.username}' ha sido creado.`,
       });
       newUserForm.reset();
@@ -121,9 +116,8 @@ export default function SettingsPage() {
   };
 
   const handleSaveLottery = (lotteryName: string) => {
-    toast({
-        title: "Sorteo Guardado",
-        description: `Los cambios en '${lotteryName}' han sido guardados (simulado).`,
+    toast.success("Cambios Guardados", {
+        description: `Los cambios en el sorteo '${lotteryName}' han sido guardados.`,
     });
   }
 
