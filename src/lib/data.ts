@@ -1,9 +1,11 @@
 export interface Lottery {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   drawTimes: string[];
   icon: string;
+  numberOfDigits: number;
+  logo?: string;
 }
 
 export interface TicketDetail {
@@ -25,13 +27,11 @@ export interface Sale {
 }
 
 export type Winner = {
-    id: string;
-    prizeTier: number;
+    id: string; // Corresponds to TicketDetail id
+    lotteryId: string;
     ticketNumber: string;
-    fractions: number;
-    customerName: string;
-    saleId: string;
-    isPaid: boolean; 
+    prizeTier: number;
+    drawDate: string;
 };
 
 export const lotteries: Lottery[] = [
@@ -41,6 +41,7 @@ export const lotteries: Lottery[] = [
     description: "Sorteos diarios para ganar al instante.",
     drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
     icon: "Sun",
+    numberOfDigits: 2,
   },
   {
     id: "la-grande",
@@ -48,13 +49,15 @@ export const lotteries: Lottery[] = [
     description: "El premio mayor que cambia vidas.",
     drawTimes: ["9:00 PM"],
     icon: "Star",
+    numberOfDigits: 5,
   },
   {
     id: "pega3",
     name: "Pega3",
     description: "Tres oportunidades para ganar.",
     drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
-    icon: "Dice3",
+    icon: "Dice5",
+    numberOfDigits: 3,
   },
   {
     id: "terminacion-2",
@@ -62,5 +65,6 @@ export const lotteries: Lottery[] = [
     description: "Gana con los dos últimos dígitos.",
     drawTimes: ["11:00 AM", "9:00 PM"],
     icon: "Hash",
+    numberOfDigits: 2,
   },
 ];
