@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { type Winner } from '@/lib/data';
+import { type Winner, type Sale } from '@/lib/data';
+import { SaleReceiptModal } from '@/components/SaleReceiptModal';
+import { Eye } from 'lucide-react';
 
-// El schema ahora recibe las loterías como argumento para la validación dinámica
 const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
   drawTime: z.string().nonempty("Debes seleccionar un horario de sorteo."),
@@ -26,7 +27,7 @@ const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   if (!data.lotteryId) return;
 
   const lottery = lotteries.find(l => l.id === data.lotteryId);
-  if (!lottery) return; // Lotería no encontrada
+  if (!lottery) return;
 
   const { numberOfDigits } = lottery;
   const prizeFields: ('firstPrizeNumber' | 'secondPrizeNumber' | 'thirdPrizeNumber')[] = ['firstPrizeNumber', 'secondPrizeNumber', 'thirdPrizeNumber'];
@@ -54,7 +55,7 @@ const createRegisterDrawSchema = (lotteries: any[]) => z.object({
 
 interface WinnerDetails extends Winner {
   customerName?: string;
-  saleId: string;
+  sale: Sale | null;
 }
 
 export default function ResultsPage() {
@@ -72,40 +73,24 @@ export default function ResultsPage() {
 
   const form = useForm<z.infer<typeof registerDrawSchema>>({
     resolver: zodResolver(registerDrawSchema),
-    defaultValues: { 
-      lotteryId: '', 
-      drawTime: '',
-      firstPrizeNumber: '', 
-      secondPrizeNumber: '', 
-      thirdPrizeNumber: '' 
-    },
+    defaultValues: { lotteryId: '', drawTime: '', firstPrizeNumber: '', secondPrizeNumber: '', thirdPrizeNumber: '' },
   });
 
   const lotteryId = form.watch('lotteryId');
 
   useEffect(() => {
     const lottery = lotteries.find(l => l.id === lotteryId);
-    if (lottery) {
-        setSelectedLottery(lottery);
-        form.reset({ 
-            lotteryId: lottery.id,
-            drawTime: '',
-            firstPrizeNumber: '', 
-            secondPrizeNumber: '', 
-            thirdPrizeNumber: '' 
-        });
-    } else {
-        setSelectedLottery(null);
-    }
-}, [lotteryId, form, lotteries]);
+    setSelectedLottery(lottery || null);
+    form.reset({ lotteryId: lotteryId, drawTime: '', firstPrizeNumber: '', secondPrizeNumber: '', thirdPrizeNumber: '' });
+  }, [lotteryId, form, lotteries]);
 
   const winnerDetails = useMemo(() => {
     return winners.map(winner => {
-        const sale = sales.find(s => s.tickets.some(t => t.id === winner.id));
+        const sale = sales.find(s => s.tickets.some(t => t.id === winner.id)) || null;
         return {
             ...winner,
             customerName: sale?.customerName || 'N/A',
-            saleId: sale?.id || 'N/A',
+            sale: sale,
         };
     });
   }, [winners, sales]);
@@ -129,7 +114,6 @@ export default function ResultsPage() {
     ];
 
     let winnersFoundCount = 0;
-
     const relevantSales = sales.filter(sale => sale.lotteryId === lotteryId && sale.drawTime === drawTime);
 
     for (const sale of relevantSales) {
@@ -144,13 +128,9 @@ export default function ResultsPage() {
     }
 
     if (winnersFoundCount > 0) {
-        toast.success(`¡${winnersFoundCount} ganadores registrados!`, {
-            description: `Se procesaron los resultados para la lotería seleccionada.`,
-        });
+        toast.success(`¡${winnersFoundCount} ganadores registrados!`);
     } else {
-        toast.info('No se encontraron ganadores', {
-            description: 'Ningún boleto vendido coincide con los números ganadores ingresados.',
-        });
+        toast.info('No se encontraron ganadores');
     }
     form.reset();
   };
@@ -160,13 +140,7 @@ export default function ResultsPage() {
           Object.entries(dailyResults).flatMap(([lotteryId, lotteryResults]) => 
               Object.entries(lotteryResults).map(([drawTime, prizes]) => {
                   const lottery = lotteries.find(l => l.id === lotteryId);
-                  return {
-                      id: `${date}-${lotteryId}-${drawTime}`,
-                      date,
-                      lotteryName: lottery?.name || 'N/A',
-                      drawTime,
-                      prizes
-                  };
+                  return { id: `${date}-${lotteryId}-${drawTime}`, date, lotteryName: lottery?.name || 'N/A', drawTime, prizes };
               })
           )
       ).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -177,101 +151,31 @@ export default function ResultsPage() {
       <div className="grid md:grid-cols-2 gap-8">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Registrar Resultados del Sorteo</CardTitle>
-            <CardDescription>Ingresa los números ganadores para una lotería y sorteo específico.</CardDescription>
+            <CardTitle className="font-headline">Registrar Resultados</CardTitle>
+            <CardDescription>Ingresa los números ganadores.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleRegisterDraw)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                    control={form.control}
-                    name="lotteryId"
-                    render={({ field }) => (
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="lotteryId" render={({ field }) => (
                         <FormItem>
                         <FormLabel>Lotería</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Selecciona una Lotería" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona una Lotería" /></SelectTrigger></FormControl><SelectContent>{lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent></Select>
                         <FormMessage />
                         </FormItem>
-                    )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="drawTime"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Horario</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedLottery}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Selecciona un horario" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {selectedLottery?.drawTimes.map((time: string) => <SelectItem key={time} value={time}>{time}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    )} />
+                    <FormField control={form.control} name="drawTime" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Horario</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedLottery}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona un horario" /></SelectTrigger></FormControl><SelectContent>{selectedLottery?.drawTimes.map((time: string) => <SelectItem key={time} value={time}>{time}</SelectItem>)}</SelectContent></Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="firstPrizeNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Número del 1er Premio</FormLabel>
-                      <FormControl>
-                        <Input 
-                            placeholder={selectedLottery ? `Ej: ${'12345'.slice(0, selectedLottery.numberOfDigits)}` : "Selecciona una lotería"}
-                            {...field} 
-                            disabled={!lotteryId}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="secondPrizeNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Número del 2do Premio</FormLabel>
-                      <FormControl>
-                        <Input 
-                            placeholder={selectedLottery ? `Ej: ${'67890'.slice(0, selectedLottery.numberOfDigits)}` : "Selecciona una lotería"}
-                            {...field} 
-                            disabled={!lotteryId}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="thirdPrizeNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Número del 3er Premio</FormLabel>
-                      <FormControl>
-                        <Input 
-                            placeholder={selectedLottery ? `Ej: ${'11223'.slice(0, selectedLottery.numberOfDigits)}` : "Selecciona una lotería"}
-                            {...field} 
-                            disabled={!lotteryId}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="firstPrizeNumber" render={({ field }) => (<FormItem><FormLabel>1er Premio</FormLabel><FormControl><Input placeholder={selectedLottery ? `Ej: ${'12345'.slice(0, selectedLottery.numberOfDigits)}` : "..."} {...field} disabled={!lotteryId}/></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="secondPrizeNumber" render={({ field }) => (<FormItem><FormLabel>2do Premio</FormLabel><FormControl><Input placeholder={selectedLottery ? `Ej: ${'67890'.slice(0, selectedLottery.numberOfDigits)}` : "..."} {...field} disabled={!lotteryId}/></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="thirdPrizeNumber" render={({ field }) => (<FormItem><FormLabel>3er Premio</FormLabel><FormControl><Input placeholder={selectedLottery ? `Ej: ${'11223'.slice(0, selectedLottery.numberOfDigits)}` : "..."} {...field} disabled={!lotteryId}/></FormControl><FormMessage /></FormItem>)} />
                 <Button type="submit" disabled={!lotteryId}>Registrar Ganadores</Button>
               </form>
             </Form>
@@ -279,33 +183,12 @@ export default function ResultsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Historial de Sorteos (Últimos 7 días)</CardTitle>
-            <CardDescription>Resultados de los sorteos realizados recientemente.</CardDescription>
+            <CardTitle className="font-headline">Historial de Sorteos</CardTitle>
+            <CardDescription>Resultados de los últimos 7 días.</CardDescription>
           </CardHeader>
           <CardContent className="max-h-96 overflow-y-auto">
-             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Lotería</TableHead>
-                        <TableHead>Fecha/Hora</TableHead>
-                        <TableHead>Premios</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {isClient && pastDraws.length > 0 ? (
-                        pastDraws.map(draw => (
-                            <TableRow key={draw.id}>
-                                <TableCell>{draw.lotteryName}</TableCell>
-                                <TableCell>{draw.date}<br/>{draw.drawTime}</TableCell>
-                                <TableCell className="font-mono text-xs">
-                                   {draw.prizes.map((p, i) => `[${i+1}] ${p}`).join(' ')}
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    ) : (
-                        <TableRow><TableCell colSpan={3} className="text-center h-24">No hay resultados históricos.</TableCell></TableRow>
-                    )}
-                </TableBody>
+             <Table><TableHeader><TableRow><TableHead>Lotería</TableHead><TableHead>Fecha/Hora</TableHead><TableHead>Premios</TableHead></TableRow></TableHeader>
+                <TableBody>{isClient && pastDraws.length > 0 ? (pastDraws.map(draw => (<TableRow key={draw.id}><TableCell>{draw.lotteryName}</TableCell><TableCell>{draw.date}<br/>{draw.drawTime}</TableCell><TableCell className="font-mono text-xs">{draw.prizes.map((p, i) => `[${i+1}] ${p}`).join(' ')}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="text-center h-24">No hay resultados históricos.</TableCell></TableRow>)}</TableBody>
              </Table>
           </CardContent>
         </Card>
@@ -313,19 +196,10 @@ export default function ResultsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Ganadores Registrados (Últimas 24 horas)</CardTitle>
+          <CardTitle className="font-headline">Ganadores Registrados</CardTitle>
            <div className="flex items-center gap-4 pt-4">
-                <Select 
-                  onValueChange={(value) => setFilterLottery(value === 'all' ? '' : value)}
-                  value={filterLottery || 'all'}
-                >
-                    <SelectTrigger className="w-64"><SelectValue placeholder="Filtrar por Lotería" /></SelectTrigger>
-                    <SelectContent>
-                         <SelectItem value="all">Mostrar Todas</SelectItem>
-                        {lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <Button onClick={() => setFilterLottery('')} variant="outline">Limpiar Filtro</Button>
+                <Select onValueChange={(value) => setFilterLottery(value === 'all' ? '' : value)} value={filterLottery || 'all'}><SelectTrigger className="w-64"><SelectValue placeholder="Filtrar por Lotería" /></SelectTrigger><SelectContent><SelectItem value="all">Mostrar Todas</SelectItem>{lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent></Select>
+                <Button onClick={() => setFilterLottery('')} variant="outline">Limpiar</Button>
             </div>
         </CardHeader>
         <CardContent>
@@ -334,41 +208,33 @@ export default function ResultsPage() {
               <TableRow>
                 <TableHead>Lotería</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>ID Venta</TableHead>
-                <TableHead>Número Ganador</TableHead>
+                <TableHead>Número/ID</TableHead>
                 <TableHead>Premio</TableHead>
-                <TableHead>Acciones</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isClient && filteredWinners.length > 0 ? (
                 filteredWinners.map(winner => {
                   const lottery = lotteries.find(l => l.id === winner.lotteryId);
+                  if (!lottery || !winner.sale) return null; // Skip if lottery or sale not found
                   return (
                     <TableRow key={winner.id}>
                       <TableCell>{lottery?.name || 'N/A'}<p className="text-xs text-muted-foreground">{winner.drawTime}</p></TableCell>
                       <TableCell>{winner.customerName}</TableCell>
-                      <TableCell className="font-mono">{winner.saleId}</TableCell>
-                      <TableCell className="font-mono font-bold">{winner.ticketNumber}</TableCell>
+                      <TableCell><p className="font-mono font-bold">{winner.ticketNumber}</p><p className="font-mono text-xs text-muted-foreground">ID: {winner.sale.id}</p></TableCell>
                       <TableCell><Badge>Premio {winner.prizeTier}</Badge></TableCell>
-                      <TableCell>
-                          <Button 
-                            size="sm"
-                            variant={winner.paid ? 'secondary' : 'destructive'}
-                            onClick={() => updateWinnerPaymentStatus(winner.id, !winner.paid)}
-                          >
-                            {winner.paid ? 'Pagado' : 'Pagar'}
-                          </Button>
+                      <TableCell className="flex justify-end items-center gap-2">
+                          <Button size="sm" variant={winner.paid ? 'secondary' : 'destructive'} onClick={() => updateWinnerPaymentStatus(winner.id, !winner.paid)}>{winner.paid ? 'Pagado' : 'Pagar'}</Button>
+                           <SaleReceiptModal sale={winner.sale} lottery={lottery}>
+                                <Button variant="outline" size="icon"><Eye className="h-4 w-4" /></Button>
+                           </SaleReceiptModal>
                       </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24">
-                    {isClient ? 'No hay ganadores para mostrar.' : 'Cargando...'}
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center h-24">{isClient ? 'No hay ganadores para mostrar.' : 'Cargando...'}</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
