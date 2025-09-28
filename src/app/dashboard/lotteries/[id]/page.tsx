@@ -69,13 +69,17 @@ export default function LotteryDetailPage() {
 
     const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tickets" });
 
-    const onSaleSubmit = (values: z.infer<typeof saleFormSchema>) => {
+    const onSaleSubmit = async (values: z.infer<typeof saleFormSchema>) => {
+        if (!lottery) return; // Ensure lottery is defined
+
         const ticketDetails: Omit<TicketDetail, 'id'>[] = values.tickets.map(ticket => ({
             ticketNumber: ticket.ticketNumber,
             fractions: ticket.fractions,
             cost: ticket.fractions * TICKET_PRICE_PER_FRACTION,
         }));
+
         const totalCost = ticketDetails.reduce((acc, ticket) => acc + ticket.cost, 0);
+        
         const newSale: Sale = {
             id: `S${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             lotteryId: lotteryId,
@@ -86,7 +90,34 @@ export default function LotteryDetailPage() {
             totalCost: totalCost,
             soldAt: new Date(),
         };
+
+        // Update internal state
         setSales(prev => [...prev, newSale]);
+
+        // Save public sale data to the secure database via API
+        try {
+            const publicSaleData = {
+                id: newSale.id,
+                lotteryId: newSale.lotteryId,
+                lotteryName: lottery.name, // Pass the lottery name
+                drawTime: newSale.drawTime,
+                customerName: newSale.customerName,
+                tickets: newSale.tickets,
+                totalCost: newSale.totalCost,
+                soldAt: newSale.soldAt,
+            };
+
+            await fetch('/api/sales', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(publicSaleData),
+            });
+        } catch (error) {
+            console.error("Failed to save public sale data:", error);
+            // Optionally, handle the error, e.g., show a toast to the user
+            toast({ title: "Error de Sincronización", description: "No se pudo guardar la venta para verificación pública.", variant: "destructive" });
+        }
+
         toast({ title: "¡Venta Exitosa!", description: `Venta ${newSale.id} creada.` });
         saleForm.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
     };
