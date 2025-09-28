@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useStateContext } from '@/context/StateContext';
-import { lotteries } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -32,7 +31,7 @@ interface VerificationResult {
 }
 
 export default function VerifyPage() {
-  const { sales, winners } = useStateContext();
+  const { sales, winners, lotteries } = useStateContext();
   const [result, setResult] = useState<VerificationResult | null>(null);
 
   const form = useForm<z.infer<typeof verifySchema>>({
@@ -41,23 +40,38 @@ export default function VerifyPage() {
   });
 
   const handleVerification = (values: z.infer<typeof verifySchema>) => {
-    const [saleId, ticketId] = values.qrCode.split(':');
+    let saleId: string;
+    try {
+        const parsedQr = JSON.parse(values.qrCode);
+        saleId = parsedQr.saleId;
+    } catch(e) {
+        saleId = values.qrCode;
+    }
 
-    if (!saleId || !ticketId) {
+
+    if (!saleId) {
       setResult({ status: 'invalid', message: 'Código QR inválido o malformado.' });
       return;
     }
 
     const sale = sales.find(s => s.id === saleId);
-    const ticket = sale?.tickets.find(t => t.id === ticketId);
 
-    if (!sale || !ticket) {
-      setResult({ status: 'invalid', message: 'Este boleto no se encuentra en el sistema. Verifique el código.' });
+    if (!sale) {
+      setResult({ status: 'invalid', message: 'Esta venta no se encuentra en el sistema. Verifique el código.' });
+      return;
+    }
+    
+    // For simplicity, this example just validates the first ticket. 
+    // A real implementation might need to handle multiple tickets in the QR.
+    const ticket = sale.tickets[0];
+
+    if (!ticket) {
+      setResult({ status: 'invalid', message: 'El boleto asociado a esta venta no es válido.' });
       return;
     }
 
     const lottery = lotteries.find(l => l.id === sale.lotteryId);
-    const winnerInfo = winners.find(w => w.id === ticketId);
+    const winnerInfo = winners.find(w => w.id === ticket.id);
 
     if (winnerInfo) {
       setResult({

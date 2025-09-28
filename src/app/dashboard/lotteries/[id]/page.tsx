@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
-import { lotteries, type Sale, type TicketDetail } from "@/lib/data";
+import { type Sale, type TicketDetail, type Lottery } from "@/lib/data";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,10 +39,10 @@ export default function LotteryDetailPage() {
     const params = useParams();
     const lotteryId = params.id as string;
 
-    const { sales, setSales } = useStateContext();
+    const { sales, setSales, lotteries } = useStateContext();
     const { toast } = useToast();
 
-    const lottery = useMemo(() => lotteries.find((l) => l.id === lotteryId), [lotteryId]);
+    const lottery = useMemo(() => lotteries.find((l) => l.id === lotteryId), [lotteryId, lotteries]);
 
     const [activeDrawTime, setActiveDrawTime] = useState(lottery?.drawTimes[0] || "");
     const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
@@ -164,7 +164,7 @@ export default function LotteryDetailPage() {
 
     if (!lottery) return null;
 
-    const Icon = iconMap[lottery.icon] || iconMap.Ticket;
+    const Icon = lottery.icon.startsWith('data:image') ? null : (iconMap[lottery.icon as keyof typeof iconMap] || iconMap.Ticket);
     const watchedSaleTickets = saleForm.watch("tickets");
     const totalSaleCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * TICKET_PRICE_PER_FRACTION), 0);
 
@@ -172,7 +172,11 @@ export default function LotteryDetailPage() {
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
             <div className="flex items-center gap-4">
                 <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/lotteries"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
-                <Icon className="h-10 w-10 text-primary" />
+                 {Icon ? (
+                    <Icon className="h-10 w-10 text-primary" />
+                ) : (
+                    <img src={lottery.icon} alt={lottery.name} className="w-10 h-10 rounded-full object-cover" />
+                )}
                 <h1 className="text-3xl font-bold font-headline">{lottery.name}</h1>
             </div>
 
