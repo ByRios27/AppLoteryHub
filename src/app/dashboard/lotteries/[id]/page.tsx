@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useMemo, useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useStateContext } from "@/context/StateContext";
 
@@ -226,59 +226,70 @@ export default function LotteryDetailPage() {
                 ))}
             </Tabs>
 
-            {selectedSale && <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}><DialogContent className="sm:max-w-xs bg-white text-black font-mono p-4">
-                <div className="text-center space-y-2 text-sm">
-                    <h2 className="text-lg font-bold">{lottery.name}</h2>
-                    <p>Sorteo: {selectedSale.drawTime}</p>
-                    <p>--------------------------------</p>
-                    <p>ID Venta: {selectedSale.id}</p>
-                    <p>Fecha: {new Date(selectedSale.soldAt).toLocaleString()}</p>
-                    <p>Cliente: {selectedSale.customerName || 'N/A'}</p>
-                    <p>--------------------------------</p>
-                    <div className="text-left">
-                        <div className="grid grid-cols-3 font-bold"><p>NUM</p><p>CANT</p><p className="text-right">COSTO</p></div>
-                        {selectedSale.tickets.map(t => <div key={t.id} className="grid grid-cols-3"><p>{t.ticketNumber}</p><p>{t.fractions}</p><p className="text-right">${t.cost.toFixed(2)}</p></div>)}
-                    </div>
-                    <p>--------------------------------</p>
-                    <p className="text-lg font-bold">TOTAL: ${selectedSale.totalCost.toFixed(2)}</p>
-                    <div className="flex justify-center pt-2"><div className="relative w-32 h-32"><Image src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/verify?saleId=${selectedSale.id}`)}`} alt="QR Code" layout="fill" objectFit="contain" /></div></div>
-                    <p className="text-xs">Verifique en linea</p>
-                </div>
-                <DialogFooter className="sm:justify-between gap-2 pt-4">
-                    <Button type="button" variant="secondary" onClick={() => handleShare(selectedSale)}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button>
-                    <Button type="button" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
-                </DialogFooter>
-            </DialogContent></Dialog>}
-            
-            {selectedSale && <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}><DialogContent>
-                 <Form {...editForm}>
-                    <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <h3 className="font-headline text-lg">Editar Venta</h3>
-                            <p className="text-sm text-muted-foreground">ID: {selectedSale.id}</p>
+            {selectedSale && (
+                <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+                    <DialogContent className="sm:max-w-xs bg-white text-black font-mono p-4">
+                        <DialogHeader>
+                            <DialogTitle className="font-bold text-center text-lg">{lottery.name}</DialogTitle>
+                            <DialogDescription className="text-center">Comprobante de Venta</DialogDescription>
+                        </DialogHeader>
+                        <div className="text-center space-y-2 text-sm pt-4">
+                            <p>Sorteo: {selectedSale.drawTime}</p>
+                            <p>--------------------------------</p>
+                            <p>ID Venta: {selectedSale.id}</p>
+                            <p>Fecha: {new Date(selectedSale.soldAt).toLocaleString()}</p>
+                            <p>Cliente: {selectedSale.customerName || 'N/A'}</p>
+                            <p>--------------------------------</p>
+                            <div className="text-left">
+                                <div className="grid grid-cols-3 font-bold"><p>NUM</p><p>CANT</p><p className="text-right">COSTO</p></div>
+                                {selectedSale.tickets.map(t => <div key={t.id} className="grid grid-cols-3"><p>{t.ticketNumber}</p><p>{t.fractions}</p><p className="text-right">${t.cost.toFixed(2)}</p></div>)}
+                            </div>
+                            <p>--------------------------------</p>
+                            <p className="text-lg font-bold">TOTAL: ${selectedSale.totalCost.toFixed(2)}</p>
+                            <div className="flex justify-center pt-2"><div className="relative w-32 h-32"><Image src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/verify?saleId=${selectedSale.id}`)}`} alt="QR Code" layout="fill" objectFit="contain" /></div></div>
+                            <p className="text-xs">Verifique en linea</p>
                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={editForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
-                            <FormField control={editForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
-                        </div>
-                        <div className="space-y-2">
-                            <FormLabel>Boletos</FormLabel>
-                            {editFields.map((field, index) => (
-                                <div key={field.id} className="flex items-center gap-2">
-                                    <FormField control={editForm.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
-                                    <FormField control={editForm.control} name={`tickets.${index}.fractions`} render={({ field }) => (<FormItem className="w-24"><FormControl><Input type="number" {...field} /></FormControl><FormMessage/></FormItem>)} />
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => editRemove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                </div>
-                            ))}
-                             <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ ticketNumber: "", fractions: 1 })}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Número</Button>
-                        </div>
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Guardar Cambios</Button>
+                        <DialogFooter className="sm:justify-between gap-2 pt-4">
+                            <Button type="button" variant="secondary" onClick={() => handleShare(selectedSale)}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button>
+                            <Button type="button" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
                         </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent></Dialog>}
+                    </DialogContent>
+                </Dialog>
+            )}
+            
+            {selectedSale && (
+                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Editar Venta</DialogTitle>
+                            <DialogDescription>ID de la venta: {selectedSale.id}</DialogDescription>
+                        </DialogHeader>
+                        <Form {...editForm}>
+                            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={editForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+                                    <FormField control={editForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+                                </div>
+                                <div className="space-y-2">
+                                    <FormLabel>Boletos</FormLabel>
+                                    {editFields.map((field, index) => (
+                                        <div key={field.id} className="flex items-center gap-2">
+                                            <FormField control={editForm.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                            <FormField control={editForm.control} name={`tickets.${index}.fractions`} render={({ field }) => (<FormItem className="w-24"><FormControl><Input type="number" {...field} /></FormControl><FormMessage/></FormItem>)} />
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => editRemove(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ ticketNumber: "", fractions: 1 })}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Número</Button>
+                                </div>
+                                <DialogFooter>
+                                    <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                                    <Button type="submit">Guardar Cambios</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            )}
         </main>
     );
 }
