@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, PlusCircle, Download } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Receipt from '@/components/receipt'; // Importar el nuevo componente de recibo
 import { type Sale } from '@/lib/data';
 
@@ -259,6 +259,9 @@ export default function SalesPage() {
             <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl bg-gray-100">
                  <DialogHeader>
                     <DialogTitle className="font-headline">Comprobante de Venta</DialogTitle>
+                    <DialogDescription>
+                      Este es el comprobante para la venta #{lastSale.id.slice(0, 8)}. Puede ser descargado como imagen PNG.
+                    </DialogDescription>
                 </DialogHeader>
                 <div ref={receiptRef}>
                     <Receipt 
