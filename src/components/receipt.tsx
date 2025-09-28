@@ -57,7 +57,7 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
       </header>
 
       <div className="space-y-1 text-xs">
-        <p><strong>Ticket ID:</strong> {sale.id.slice(0, 13)}...</p>
+        <p><strong>Ticket ID:</strong> {sale.id}</p>
         <p><strong>Fecha y Hora:</strong> {format(new Date(sale.soldAt), "dd/MM/yyyy HH:mm:ss")}</p>
         <p><strong>Vendedor:</strong> {sellerId}</p>
         <p><strong>Cliente:</strong> {sale.customerName}</p>
