@@ -27,6 +27,7 @@ interface StateContextType {
   setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
   appCustomization: AppCustomization;
   setAppCustomization: React.Dispatch<React.SetStateAction<AppCustomization>>;
+  sellerId: string; // Nuevo campo para el ID del vendedor
 }
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
@@ -61,6 +62,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [winners, setWinners] = useState<Winner[]>(() => getStoredData('lotteryWinners', []));
   const [lotteries, setLotteries] = useState<Lottery[]>(() => getStoredData('appLotteries', initialLotteries));
   const [appCustomization, setAppCustomization] = useState<AppCustomization>(() => getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
+  const [sellerId] = useState<string>('ventas01'); // ID del vendedor por defecto
 
 
   useEffect(() => {
@@ -104,7 +106,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, addWinner, lotteries, setLotteries, appCustomization, setAppCustomization }}>
+    <StateContext.Provider value={{ sales, setSales, winningResults, setWinningResults, winners, addWinner, lotteries, setLotteries, appCustomization, setAppCustomization, sellerId }}>
       {children}
     </StateContext.Provider>
   );
