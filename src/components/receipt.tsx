@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { QRCode } from 'react-qr-code';
+import QRCode from 'react-qr-code';
 import { Sale } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
 
