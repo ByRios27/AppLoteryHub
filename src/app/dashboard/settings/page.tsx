@@ -41,6 +41,13 @@ export default function SettingsPage() {
   const handleAppLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+          toast.error("Formato de archivo no válido", {
+              description: "Por favor, sube una imagen en formato JPG o PNG.",
+          });
+          return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
@@ -99,6 +106,13 @@ export default function SettingsPage() {
   const handleLotteryIconUpload = (e: React.ChangeEvent<HTMLInputElement>, lotteryIndex: number) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(file.type)) {
+          toast.error("Formato de archivo no válido", {
+              description: "Por favor, sube una imagen en formato JPG o PNG.",
+          });
+          return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
@@ -149,7 +163,7 @@ export default function SettingsPage() {
                         type="file"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         onChange={handleAppLogoUpload}
-                        accept="image/png, image/jpeg, image/svg+xml"
+                        accept="image/png, image/jpeg"
                       />
                       <Button variant="outline" asChild className="pointer-events-none w-full">
                         <div>
@@ -334,7 +348,7 @@ export default function SettingsPage() {
                                                     type="file"
                                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                                     onChange={(e) => handleLotteryIconUpload(e, index)}
-                                                    accept="image/png, image/jpeg, image/svg+xml"
+                                                    accept="image/png, image/jpeg"
                                                 />
                                                 <Button variant="outline" asChild className="pointer-events-none w-full">
                                                     <div>

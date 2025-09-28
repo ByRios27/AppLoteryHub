@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useStateContext } from "@/context/StateContext";
+import ReceiptComponent from "@/components/receipt";
 
 const TICKET_PRICE_PER_FRACTION = 0.20;
 
@@ -121,7 +122,7 @@ export default function LotteryDetailPage() {
         toast({ title: "Venta Eliminada", variant: "destructive" });
     };
 
-    const handleShare = async (sale: Sale | null) => {
+    const handleShare = async (sale: Sale) => {
         if (!sale || !lottery) return;
         const verificationUrl = `${window.location.origin}/verify?saleId=${sale.id}`;
         const ticketsText = sale.tickets.map(t => `> Nro: ${t.ticketNumber} | Cant: ${t.fractions} | Costo: $${t.cost.toFixed(2)}`).join('\n');
@@ -143,6 +144,19 @@ export default function LotteryDetailPage() {
             }
         }
     };
+    
+    const handlePrint = () => {
+        const printContent = document.getElementById("receipt-content");
+        if (printContent) {
+            const originalContents = document.body.innerHTML;
+            document.body.innerHTML = printContent.innerHTML;
+            window.print();
+            document.body.innerHTML = originalContents;
+            // Re-bind event listeners if necessary, or simply reload
+            window.location.reload(); 
+        }
+    }
+
 
     const salesForCurrentDraw = useMemo(() => {
         return sales.filter((s) => s.drawTime === activeDrawTime && s.lotteryId === lotteryId).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
@@ -157,7 +171,7 @@ export default function LotteryDetailPage() {
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
             <div className="flex items-center gap-4">
-                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
+                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/lotteries"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
                 <Icon className="h-10 w-10 text-primary" />
                 <h1 className="text-3xl font-bold font-headline">{lottery.name}</h1>
             </div>
@@ -202,20 +216,22 @@ export default function LotteryDetailPage() {
                                 <Card><CardHeader><CardTitle className="font-headline">Ventas Realizadas</CardTitle><CardDescription>Todas las ventas para el sorteo de las {time}.</CardDescription></CardHeader>
                                     <CardContent>
                                         <Table>
-                                            <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Boletos</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+                                            <TableHeader><TableRow><TableHead>ID Venta</TableHead><TableHead>Cliente</TableHead><TableHead>Boletos</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                             <TableBody>
                                                 {salesForCurrentDraw.length > 0 ? (salesForCurrentDraw.map((sale) => (
                                                     <TableRow key={sale.id}>
+                                                        <TableCell className="font-mono">{sale.id}</TableCell>
                                                         <TableCell>{sale.customerName || "N/A"}<p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleTimeString()}</p></TableCell>
                                                         <TableCell>{sale.tickets.length}</TableCell>
                                                         <TableCell className="text-right">${sale.totalCost.toFixed(2)}</TableCell>
                                                         <TableCell className="text-right">
                                                             <Button variant="ghost" size="icon" onClick={() => openReceiptDialog(sale)}><Receipt className="h-4 w-4" /></Button>
+                                                            <Button variant="ghost" size="icon" onClick={() => handleShare(sale)}><Share2 className="h-4 w-4" /></Button>
                                                             <Button variant="ghost" size="icon" onClick={() => openEditDialog(sale)}><Edit className="h-4 w-4" /></Button>
                                                             <Button variant="ghost" size="icon" onClick={() => handleDeleteSale(sale.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                                         </TableCell>
                                                     </TableRow>
-                                                ))) : (<TableRow><TableCell colSpan={4} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
+                                                ))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
                                             </TableBody>
                                         </Table>
                                     </CardContent>
@@ -226,32 +242,15 @@ export default function LotteryDetailPage() {
                 ))}
             </Tabs>
 
-            {selectedSale && (
+            {selectedSale && lottery && (
                 <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
-                    <DialogContent className="sm:max-w-xs bg-white text-black font-mono p-4">
-                        <DialogHeader>
-                            <DialogTitle className="font-bold text-center text-lg">{lottery.name}</DialogTitle>
-                            <DialogDescription className="text-center">Comprobante de Venta</DialogDescription>
-                        </DialogHeader>
-                        <div className="text-center space-y-2 text-sm pt-4">
-                            <p>Sorteo: {selectedSale.drawTime}</p>
-                            <p>--------------------------------</p>
-                            <p>ID Venta: {selectedSale.id}</p>
-                            <p>Fecha: {new Date(selectedSale.soldAt).toLocaleString()}</p>
-                            <p>Cliente: {selectedSale.customerName || 'N/A'}</p>
-                            <p>--------------------------------</p>
-                            <div className="text-left">
-                                <div className="grid grid-cols-3 font-bold"><p>NUM</p><p>CANT</p><p className="text-right">COSTO</p></div>
-                                {selectedSale.tickets.map(t => <div key={t.id} className="grid grid-cols-3"><p>{t.ticketNumber}</p><p>{t.fractions}</p><p className="text-right">${t.cost.toFixed(2)}</p></div>)}
-                            </div>
-                            <p>--------------------------------</p>
-                            <p className="text-lg font-bold">TOTAL: ${selectedSale.totalCost.toFixed(2)}</p>
-                            <div className="flex justify-center pt-2"><div className="relative w-32 h-32"><Image src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(`${window.location.origin}/verify?saleId=${selectedSale.id}`)}`} alt="QR Code" layout="fill" objectFit="contain" /></div></div>
-                            <p className="text-xs">Verifique en linea</p>
+                    <DialogContent className="sm:max-w-xs p-0 bg-white">
+                        <div id="receipt-content">
+                           <ReceiptComponent sale={selectedSale} lotteryName={lottery.name} drawTime={selectedSale.drawTime} />
                         </div>
-                        <DialogFooter className="sm:justify-between gap-2 pt-4">
+                        <DialogFooter className="sm:justify-between gap-2 p-4 border-t">
                             <Button type="button" variant="secondary" onClick={() => handleShare(selectedSale)}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button>
-                            <Button type="button" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+                            <Button type="button" onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -293,3 +292,5 @@ export default function LotteryDetailPage() {
         </main>
     );
 }
+
+    

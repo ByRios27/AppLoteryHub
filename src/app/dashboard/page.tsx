@@ -1,12 +1,37 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useStateContext } from '@/context/StateContext';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { iconMap } from '@/lib/icon-map';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const { lotteries } = useStateContext();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return (
+        <div className="p-4 sm:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">Loterías Disponibles</h1>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                        <div key={index} className="flex flex-col items-center justify-center gap-3">
+                            <Skeleton className="w-28 h-28 sm:w-32 sm:h-32 rounded-full" />
+                            <Skeleton className="h-4 w-20" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">

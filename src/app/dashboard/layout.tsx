@@ -29,11 +29,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useStateContext } from "@/context/StateContext"; // Importar el contexto
+import { useStateContext } from "@/context/StateContext";
 
 const NAV_ITEMS = [
   { href: "/dashboard/lotteries", label: "Loterías", icon: LayoutGrid },
-  { href: "/dashboard/sales", label: "Ventas", icon: ClipboardList },
   { href: "/dashboard/results", label: "Resultados", icon: Trophy },
   { href: "/dashboard/verify", label: "Verificar", icon: QrCode },
   { href: "/dashboard/settings", label: "Ajustes", icon: Settings },
@@ -60,7 +59,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { appCustomization } = useStateContext(); // Obtener personalización del contexto
+  const { appCustomization } = useStateContext();
 
   const isActive = (path: string) => pathname.startsWith(path);
 
@@ -163,3 +162,5 @@ export default function DashboardLayout({
     </div>
   );
 }
+
+    
