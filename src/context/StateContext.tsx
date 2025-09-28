@@ -62,38 +62,48 @@ const cleanOldData = () => {
 
     try {
       // Clean Sales (older than 12 hours)
-      const sales = getStoredData<Sale[]>('lotterySales', []);
-      const validSales = sales.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
-      localStorage.setItem('lotterySales', JSON.stringify(validSales));
+      const salesData = localStorage.getItem('lotterySales');
+      if(salesData) {
+        const sales = JSON.parse(salesData) as Sale[];
+        const validSales = sales.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
+        localStorage.setItem('lotterySales', JSON.stringify(validSales));
+      }
 
       // Clean Winners (older than 24 hours)
-      const winners = getStoredData<Winner[]>('lotteryWinners', []);
-      const validWinners = winners.filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
-      localStorage.setItem('lotteryWinners', JSON.stringify(validWinners));
+      const winnersData = localStorage.getItem('lotteryWinners');
+      if (winnersData) {
+        const winners = JSON.parse(winnersData) as Winner[];
+        const validWinners = winners.filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
+        localStorage.setItem('lotteryWinners', JSON.stringify(validWinners));
+      }
+
 
       // Clean Winning Results (older than 7 days)
-      const results = getStoredData<WinningResults>('winningResults', {});
-      const validResults: WinningResults = {};
-      const sevenDaysAgo = subDays(now, 7);
+      const resultsData = localStorage.getItem('winningResults');
+      if(resultsData) {
+        const results = JSON.parse(resultsData) as WinningResults;
+        const validResults: WinningResults = {};
+        const sevenDaysAgo = subDays(now, 7);
 
-      Object.entries(results).forEach(([dateStr, dailyResults]) => {
-          if (new Date(dateStr) >= sevenDaysAgo) {
-              validResults[dateStr] = dailyResults;
-          }
-      });
-      localStorage.setItem('winningResults', JSON.stringify(validResults));
+        Object.entries(results).forEach(([dateStr, dailyResults]) => {
+            if (new Date(dateStr) >= sevenDaysAgo) {
+                validResults[dateStr] = dailyResults;
+            }
+        });
+        localStorage.setItem('winningResults', JSON.stringify(validResults));
+      }
     } catch (error) {
         console.error("Error cleaning old data from localStorage", error);
     }
 };
 
+// Run cleaning logic once before any component mounts
+if (typeof window !== 'undefined') {
+    cleanOldData();
+}
+
 
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
-  useEffect(() => {
-    // Run cleaning logic only once on initial mount
-    cleanOldData();
-  }, []);
-
   const [sales, setSales] = useState<Sale[]>(() => getStoredData('lotterySales', []));
   const [winningResults, setWinningResults] = useState<WinningResults>(() => getStoredData('winningResults', {}));
   const [winners, setWinners] = useState<Winner[]>(() => getStoredData('lotteryWinners', []));
