@@ -1,20 +1,42 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { ImageIcon } from 'lucide-react';
+
 import { useStateContext } from '@/context/StateContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import { iconMap } from '@/lib/icon-map';
+import { Label } from '@/components/ui/label';
 
 export default function SettingsPage() {
-  const { lotteries, setLotteries } = useStateContext();
+  const { lotteries, setLotteries, appCustomization, setAppCustomization } = useStateContext();
   const router = useRouter();
   const { toast } = useToast();
+  
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const appLogoInputRef = useRef<HTMLInputElement | null>(null);
 
+  // --- Handlers for App Customization ---
+  const handleAppNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAppCustomization(prev => ({ ...prev, appName: e.target.value }));
+  };
+
+  const handleAppLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAppCustomization(prev => ({ ...prev, appLogo: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // --- Handlers for Lottery Icons ---
   const handleIconChange = (id: string, newIcon: string) => {
     const updatedLotteries = lotteries.map((lottery) =>
       lottery.id === id ? { ...lottery, icon: newIcon } : lottery
@@ -22,7 +44,7 @@ export default function SettingsPage() {
     setLotteries(updatedLotteries);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+  const handleLotteryIconFileChange = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -37,19 +59,62 @@ export default function SettingsPage() {
     fileInputRefs.current[id]?.click();
   };
 
+  // --- Save Changes ---
   const handleSaveChanges = () => {
-    toast({ title: 'Success', description: 'Changes saved successfully!' });
+    toast({ title: '¡Guardado!', description: 'Los cambios se han guardado con éxito.' });
     router.push('/dashboard');
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 font-headline">Ajustes Generales</h1>
         <div className="space-y-8">
+          
+          {/* Card for App Customization */}
           <Card>
             <CardHeader>
-              <CardTitle>Manage Lottery Icons</CardTitle>
+              <CardTitle className='font-headline'>Personalización de la App</CardTitle>
+              <CardDescription>Cambia el nombre y el logo de tu aplicación.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="appName">Nombre de la App</Label>
+                <Input
+                  id="appName"
+                  value={appCustomization.appName}
+                  onChange={handleAppNameChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Logo de la App</Label>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 flex items-center justify-center rounded-lg bg-card overflow-hidden border">
+                    {appCustomization.appLogo ? (
+                        <img src={appCustomization.appLogo} alt="App Logo" className="w-full h-full object-cover" />
+                    ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <Button onClick={() => appLogoInputRef.current?.click()} variant="outline">
+                    Cambiar Logo
+                  </Button>
+                  <Input
+                    type="file"
+                    className="hidden"
+                    ref={appLogoInputRef}
+                    onChange={handleAppLogoChange}
+                    accept="image/*"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card for Lottery Icons */}
+          <Card>
+            <CardHeader>
+              <CardTitle className='font-headline'>Gestionar Iconos de Loterías</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {lotteries.map((lottery) => {
@@ -70,13 +135,13 @@ export default function SettingsPage() {
                       <span className="font-medium text-foreground">{lottery.name}</span>
                     </div>
                     <Button onClick={() => triggerFileInput(lottery.id)} variant="outline">
-                      Change Icon
+                      Cambiar Icono
                     </Button>
                     <Input
                       type="file"
                       className="hidden"
                       ref={(el) => (fileInputRefs.current[lottery.id] = el)}
-                      onChange={(e) => handleFileChange(e, lottery.id)}
+                      onChange={(e) => handleLotteryIconFileChange(e, lottery.id)}
                     />
                   </div>
                 );
@@ -85,7 +150,7 @@ export default function SettingsPage() {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={handleSaveChanges} size="lg">Save Changes</Button>
+            <Button onClick={handleSaveChanges} size="lg">Guardar Cambios</Button>
           </div>
         </div>
       </div>
