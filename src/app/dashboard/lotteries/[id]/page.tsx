@@ -134,13 +134,10 @@ export default function LotteryDetailPage() {
             const dataUrl = await htmlToImage.toPng(receiptElement, { pixelRatio: 2, quality: 1.0 });
             const blob = await (await fetch(dataUrl)).blob();
             const file = new File([blob], "comprobante.png", { type: "image/png" });
-            const verificationUrl = `${window.location.origin}/verify?saleId=${sale.id}`;
 
             if (navigator.share && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
-                    title: 'Comprobante de Venta',
-                    text: `¡Gracias por tu compra! Comprueba la autenticidad de tu boleto aquí: ${verificationUrl}`,
                 });
             } else {
                 const link = document.createElement('a');

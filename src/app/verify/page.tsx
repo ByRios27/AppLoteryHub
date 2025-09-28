@@ -1,4 +1,4 @@
-'use client';
+e'use client';
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -34,6 +34,7 @@ interface VerificationResult {
 function VerifyPageContent() {
   const { sales, winners, lotteries } = useStateContext();
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [isDirectVerification, setIsDirectVerification] = useState(false);
   const searchParams = useSearchParams();
 
   const form = useForm<z.infer<typeof verifySchema>>({
@@ -105,39 +106,43 @@ function VerifyPageContent() {
   useEffect(() => {
     const saleIdFromUrl = searchParams.get('saleId');
     if (saleIdFromUrl) {
+      setIsDirectVerification(true);
       form.setValue('qrCode', saleIdFromUrl);
       handleVerification({ qrCode: saleIdFromUrl });
     }
   }, [searchParams, form]);
 
   return (
-    <main className="flex flex-col items-center justify-center p-4 md:p-8">
+    <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="w-full max-w-2xl">
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="font-headline">Verificador de Boletos</CardTitle>
-            <CardDescription>Ingrese el código de su boleto para verificar su autenticidad y si ha resultado ganador.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleVerification)} className="flex gap-4">
-                <FormField
-                  control={form.control}
-                  name="qrCode"
-                  render={({ field }) => (
-                    <FormItem className="flex-grow">
-                      <FormControl>
-                        <Input placeholder="Pegue el código del QR aquí o use el enlace de verificación" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit">Verificar</Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+        
+        {!isDirectVerification && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="font-headline">Verificador de Boletos</CardTitle>
+              <CardDescription>Ingrese el código de su boleto para verificar su autenticidad y si ha resultado ganador.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleVerification)} className="flex gap-4">
+                  <FormField
+                    control={form.control}
+                    name="qrCode"
+                    render={({ field }) => (
+                      <FormItem className="flex-grow">
+                        <FormControl>
+                          <Input placeholder="Pegue el código del QR aquí o use el enlace de verificación" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit">Verificar</Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
 
         {result && (
           <Card 
@@ -177,8 +182,6 @@ function VerifyPageContent() {
   );
 }
 
-// We need to wrap the component in a Suspense boundary if we use useSearchParams
-// but since this is a simple page, we can just wrap it in a client component that does the check
 export default function VerifyPage() {
     return (
         <VerifyPageContent />
