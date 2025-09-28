@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, lotteries as initialLotteries } from '@/lib/data';
-import { differenceInHours, differenceInDays, format, subDays } from 'date-fns';
+import { differenceInHours, subDays, format } from 'date-fns';
+import { toast } from 'sonner';
 
 // Formato de WinningResults: { "YYYY-MM-DD": { "lotteryId": { "drawTime": ["prize1", "prize2", "prize3"] } } }
 type WinningResults = {
@@ -35,19 +36,14 @@ interface StateContextType {
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
-function getStoredData<T>(key: string, defaultValue: T, validator?: (data: any) => boolean): T {
+function getStoredData<T>(key: string, defaultValue: T): T {
   if (typeof window === 'undefined') return defaultValue;
 
   const savedData = localStorage.getItem(key);
   if (!savedData) return defaultValue;
 
   try {
-    const parsedData = JSON.parse(savedData);
-    if (validator && !validator(parsedData)) {
-      console.warn(`Invalid data structure for ${key} in localStorage. Using default.`);
-      return defaultValue;
-    }
-    return parsedData;
+    return JSON.parse(savedData);
   } catch (error) {
     console.error(`Error parsing ${key} from localStorage`, error);
     localStorage.removeItem(key); 
@@ -57,10 +53,10 @@ function getStoredData<T>(key: string, defaultValue: T, validator?: (data: any) 
 
 const cleanOldData = () => {
     if (typeof window === 'undefined') return;
+    const now = new Date();
 
     // Clean Sales (older than 12 hours)
     const sales = getStoredData<Sale[]>('lotterySales', []);
-    const now = new Date();
     const validSales = sales.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
     localStorage.setItem('lotterySales', JSON.stringify(validSales));
 
@@ -85,7 +81,6 @@ const cleanOldData = () => {
 
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
-    // Clean data on initial load
     cleanOldData();
   }, []);
 
@@ -133,14 +128,14 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
       return [...safePrevWinners, newWinner];
     });
   };
-
+  
   const updateWinnerPaymentStatus = (winnerId: string, paid: boolean) => {
     setWinners(prevWinners => 
         prevWinners.map(winner => 
             winner.id === winnerId ? { ...winner, paid } : winner
         )
     );
-    toast.success(`Pago actualizado para el ganador ${winnerId}.`);
+    toast.success(`Estado de pago actualizado para el ganador ${winnerId}.`);
   };
 
   return (
@@ -164,5 +159,3 @@ export const useStateContext = () => {
   }
   return context;
 };
-
-    
