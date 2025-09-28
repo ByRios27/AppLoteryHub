@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { Sale } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
@@ -12,19 +12,27 @@ interface ReceiptProps {
   drawTime: string;
 }
 
-// Componente para generar y mostrar el QR
+// Componente para generar y mostrar el QR como una imagen PNG
 const QrCodeGenerator: React.FC<{ text: string }> = ({ text }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [imageUrl, setImageUrl] = useState('');
 
     useEffect(() => {
-        if (canvasRef.current) {
-            QRCode.toCanvas(canvasRef.current, text, { width: 96 }, (error) => {
-                if (error) console.error('Error generating QR Code:', error);
+        if (text) {
+            QRCode.toDataURL(text, { width: 96, margin: 1 }, (error, url) => {
+                if (error) {
+                    console.error('Error generating QR Code:', error);
+                } else {
+                    setImageUrl(url);
+                }
             });
         }
     }, [text]);
 
-    return <canvas ref={canvasRef} />;
+    if (!imageUrl) {
+        return <div className="w-24 h-24 bg-gray-200 rounded animate-pulse" />;
+    }
+
+    return <img src={imageUrl} alt="Sale QR Code" className="w-24 h-24" />;
 };
 
 
