@@ -29,9 +29,11 @@ export interface Sale {
 export type Winner = {
     id: string; // Corresponds to TicketDetail id
     lotteryId: string;
+    drawTime: string;
     ticketNumber: string;
     prizeTier: number;
     drawDate: string;
+    paid: boolean; // Payment status
 };
 
 export const lotteries: Lottery[] = [
@@ -68,3 +70,5 @@ export const lotteries: Lottery[] = [
     numberOfDigits: 2,
   },
 ];
+
+    
