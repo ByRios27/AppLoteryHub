@@ -1,18 +1,17 @@
-
-"use client";
+'use client';
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { UploadCloud, PlusCircle, UserPlus, Save, Trash2, Pencil } from "lucide-react";
+import { UploadCloud, PlusCircle, UserPlus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useStateContext } from "@/context/StateContext"; // Importar el contexto
+import { useStateContext } from "@/context/StateContext";
 import { type Lottery } from "@/lib/data";
 import { iconMap } from "@/lib/icon-map";
 import { Separator } from "@/components/ui/separator";
@@ -32,27 +31,27 @@ const newUserSchema = z.object({
 
 
 export default function SettingsPage() {
-  const { lotteries, setLotteries } = useStateContext(); // Usar el estado global
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [appName, setAppName] = useState("Lotto Hub");
-  const timeSlots = generateTimeSlots();
+  const { lotteries, setLotteries, appCustomization, setAppCustomization } = useStateContext();
+  const [logoPreview, setLogoPreview] = useState<string | null>(appCustomization.appLogo);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAppNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAppCustomization({ ...appCustomization, appName: e.target.value });
+  };
+
+  const handleAppLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setLogoFile(file);
-      toast.info("Archivo listo para subir", {
-        description: `${file.name} será guardado al hacer clic en \"Guardar Cambios.\"`,
-      });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setLogoPreview(base64String);
+        setAppCustomization({ ...appCustomization, appLogo: base64String });
+        toast.success("Logo Actualizado", { description: "El nuevo logo de la aplicación se ha guardado." });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveCustomization = () => {
-    toast.success("Personalización Guardada", {
-        description: `El título de la aplicación y el logo han sido guardados.`,
-    });
-  }
-  
   const newLotteryForm = useForm<z.infer<typeof newLotterySchema>>({
     resolver: zodResolver(newLotterySchema),
     defaultValues: { name: "", drawTimes: [], numberOfDigits: 4 },
@@ -102,17 +101,19 @@ export default function SettingsPage() {
       const file = e.target.files[0];
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleLotteryUpdate(lotteryIndex, 'icon', reader.result as string);
+        const base64String = reader.result as string;
+        handleLotteryUpdate(lotteryIndex, 'icon', base64String);
+        toast.success("Logo de Sorteo Actualizado", { 
+            description: `El logo para '${lotteries[lotteryIndex].name}' ha sido cambiado.`
+        });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveLottery = (lotteryName: string) => {
-    // Como ahora usamos el contexto, el guardado es implícito.
-    // La notificación confirma la acción del usuario.
-    toast.success("Cambios Guardados", {
-        description: `Los cambios en el sorteo '${lotteryName}' han sido guardados.`,
+  const handleSaveChanges = (section: string) => {
+    toast.success("Ajustes Guardados", {
+        description: `Los cambios en \"${section}\" han sido guardados.`,
     });
   }
 
@@ -126,7 +127,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="font-headline">Personalización de la App</CardTitle>
             <CardDescription>
-              Modifica la apariencia de tu aplicación.
+              Modifica la apariencia global de tu aplicación.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -134,25 +135,26 @@ export default function SettingsPage() {
                 <Label htmlFor="app-name">Título de la Aplicación</Label>
                 <Input
                 id="app-name"
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
+                value={appCustomization.appName}
+                onChange={handleAppNameChange}
                 />
             </div>
              <div className="space-y-2">
-                <label className="font-medium">Logo de la App</label>
+                <Label>Logo de la App</Label>
                 <div className="flex items-center gap-4">
+                    {logoPreview && <img src={logoPreview} alt="App Logo Preview" className="h-12 w-12 rounded-lg object-cover" />} 
                     <div className="relative flex-1">
                       <Input
                         id="logo-upload"
                         type="file"
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={handleFileUpload}
+                        onChange={handleAppLogoUpload}
                         accept="image/png, image/jpeg, image/svg+xml"
                       />
                       <Button variant="outline" asChild className="pointer-events-none w-full">
                         <div>
                          <UploadCloud className="mr-2" />
-                         <span>{logoFile ? logoFile.name : 'Subir Logo'}</span>
+                         <span>{logoPreview ? 'Cambiar Logo' : 'Subir Logo'}</span>
                         </div>
                       </Button>
                     </div>
@@ -161,7 +163,7 @@ export default function SettingsPage() {
              </div>
           </CardContent>
           <CardFooter>
-            <Button onClick={handleSaveCustomization}>
+            <Button onClick={() => handleSaveChanges('Personalización de la App')}>
                 <Save className="mr-2" />
                 Guardar Cambios
             </Button>
@@ -265,8 +267,8 @@ export default function SettingsPage() {
                                 <Card key={lottery.id}>
                                     <CardHeader className="flex flex-row items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            {lottery.icon.startsWith('data:') ? (
-                                                <img src={lottery.icon} alt={lottery.name} className="h-6 w-6" />
+                                            {lottery.icon.startsWith('data:image') ? (
+                                                <img src={lottery.icon} alt={lottery.name} className="h-8 w-8 rounded-lg object-cover" />
                                             ) : (
                                                 Icon && <Icon className="h-6 w-6 text-primary" />
                                             )}
@@ -326,27 +328,25 @@ export default function SettingsPage() {
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor={`logo-${lottery.id}`}>Logo del Sorteo</Label>
-                                            <div className="flex items-center gap-4">
-                                                <div className="relative flex-1">
-                                                    <Input
-                                                        id={`logo-${lottery.id}`}
-                                                        type="file"
-                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                                        onChange={(e) => handleLotteryIconUpload(e, index)}
-                                                        accept="image/png, image/jpeg, image/svg+xml"
-                                                    />
-                                                    <Button variant="outline" asChild className="pointer-events-none w-full">
-                                                        <div>
-                                                            <UploadCloud className="mr-2" />
-                                                            <span>{'Subir nuevo logo'}</span>
-                                                        </div>
-                                                    </Button>
-                                                </div>
+                                            <div className="relative flex-1">
+                                                <Input
+                                                    id={`logo-${lottery.id}`}
+                                                    type="file"
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                    onChange={(e) => handleLotteryIconUpload(e, index)}
+                                                    accept="image/png, image/jpeg, image/svg+xml"
+                                                />
+                                                <Button variant="outline" asChild className="pointer-events-none w-full">
+                                                    <div>
+                                                        <UploadCloud className="mr-2" />
+                                                        <span>{lottery.icon.startsWith('data:image') ? 'Cambiar Logo' : 'Subir Logo'}</span>
+                                                    </div>
+                                                </Button>
                                             </div>
                                         </div>
                                     </CardContent>
                                     <CardFooter>
-                                        <Button onClick={() => handleSaveLottery(lottery.name)}>
+                                        <Button onClick={() => handleSaveChanges(`Sorteo: ${lottery.name}`)}>
                                             <Save className="mr-2 h-4 w-4"/>
                                             Guardar Cambios
                                         </Button>

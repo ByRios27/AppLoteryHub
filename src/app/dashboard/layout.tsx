@@ -10,7 +10,7 @@ import {
   Trophy,
   Settings,
   QrCode,
-  ClipboardList, // Añadido para el nuevo ítem
+  ClipboardList,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useStateContext } from "@/context/StateContext"; // Importar el contexto
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Loterías", icon: LayoutGrid },
@@ -59,6 +60,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { appCustomization } = useStateContext(); // Obtener personalización del contexto
 
   const isActive = (path: string) => {
     if (path === '/dashboard') {
@@ -66,6 +68,17 @@ export default function DashboardLayout({
     }
     return pathname.startsWith(path);
   };
+
+  const AppLogoAndName = () => (
+    <div className="flex items-center gap-2 font-semibold">
+      {appCustomization.appLogo ? (
+        <img src={appCustomization.appLogo} alt={appCustomization.appName} className="h-7 w-7" />
+      ) : (
+        <Clover className="h-6 w-6 text-primary" />
+      )}
+      <span className="font-headline">{appCustomization.appName}</span>
+    </div>
+  );
 
   const desktopNav = (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
@@ -78,11 +91,10 @@ export default function DashboardLayout({
   const mobileNav = (
     <nav className="grid gap-2 text-lg font-medium">
       <Link
-          href="/dashboard" // Corregido
+          href="/dashboard"
           className="flex items-center gap-2 text-lg font-semibold mb-4"
         >
-          <Clover className="h-6 w-6 text-primary" />
-          <span className="font-headline">Lotto Hub</span>
+          <AppLogoAndName />
       </Link>
       {NAV_ITEMS.map((item) => (
         <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
@@ -95,9 +107,8 @@ export default function DashboardLayout({
       <div className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold"> {/* Corregido */}
-              <Clover className="h-6 w-6 text-primary" />
-              <span className="font-headline">Lotto Hub</span>
+            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+              <AppLogoAndName />
             </Link>
           </div>
           <div className="flex-1">
