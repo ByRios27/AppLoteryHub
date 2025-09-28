@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import QRCode from 'react-qr-code';
+import React, { useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import { Sale } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
+import { format } from 'date-fns';
 
 interface ReceiptProps {
   sale: Sale;
@@ -11,8 +12,31 @@ interface ReceiptProps {
   drawTime: string;
 }
 
+// Componente para generar y mostrar el QR
+const QrCodeGenerator: React.FC<{ text: string }> = ({ text }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        if (canvasRef.current) {
+            QRCode.toCanvas(canvasRef.current, text, { width: 96 }, (error) => {
+                if (error) console.error('Error generating QR Code:', error);
+            });
+        }
+    }, [text]);
+
+    return <canvas ref={canvasRef} />;
+};
+
+
 const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
   const { appCustomization, sellerId } = useStateContext();
+
+  // Crear un objeto de verificación o un simple string para el QR
+  const qrCodeValue = JSON.stringify({ 
+      saleId: sale.id,
+      lottery: lotteryName,
+      date: sale.soldAt
+  });
 
   return (
     <div id="receipt" className="bg-white text-black p-4 font-mono text-sm w-80 mx-auto border-2 border-dashed border-gray-400">
@@ -25,40 +49,41 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
       </header>
 
       <div className="space-y-1 text-xs">
-        <p><strong>Ticket ID:</strong> {sale.id}</p>
-        <p><strong>Fecha y Hora:</strong> {new Date(sale.timestamp).toLocaleString()}</p>
+        <p><strong>Ticket ID:</strong> {sale.id.slice(0, 13)}...</p>
+        <p><strong>Fecha y Hora:</strong> {format(new Date(sale.soldAt), "dd/MM/yyyy HH:mm:ss")}</p>
         <p><strong>Vendedor:</strong> {sellerId}</p>
         <p><strong>Cliente:</strong> {sale.customerName}</p>
-        <p><strong>Teléfono:</strong> {sale.customerPhone}</p>
+        {sale.customerPhone && <p><strong>Teléfono:</strong> {sale.customerPhone}</p>}
         <p><strong>Sorteo:</strong> {lotteryName} ({drawTime})</p>
       </div>
 
       <div className="border-t border-b border-dashed border-gray-400 my-2 py-2">
         <div className="grid grid-cols-3 font-bold">
           <span>Número</span>
-          <span className="text-center">Cantidad</span>
-          <span className="text-right">Total</span>
+          <span className="text-center">Fracc.</span>
+          <span className="text-right">Monto</span>
         </div>
-        {sale.numbers.map((item, index) => (
-          <div key={index} className="grid grid-cols-3">
-            <span>{item.number}</span>
-            <span className="text-center">{`x${item.quantity}`}</span>
-            <span className="text-right">${item.amount.toFixed(2)}</span>
+        {sale.tickets.map((ticket) => (
+          <div key={ticket.id} className="grid grid-cols-3">
+            <span>{ticket.ticketNumber}</span>
+            <span className="text-center">{`x${ticket.fractions}`}</span>
+            <span className="text-right">${ticket.cost.toFixed(2)}</span>
           </div>
         ))}
       </div>
 
       <div className="text-right font-bold text-base my-2">
-        <p>TOTAL: ${sale.totalAmount.toFixed(2)}</p>
+        <p>TOTAL: ${sale.totalCost.toFixed(2)}</p>
       </div>
 
       <footer className="text-center mt-4">
         <div className="flex justify-center">
             <div className="p-2 bg-white inline-block">
-                <QRCode value={sale.id} size={96} />
+                <QrCodeGenerator text={qrCodeValue} />
             </div>
         </div>
         <p className="text-xs mt-2">¡Gracias por su compra!</p>
+        <p className="text-xs italic">Conserve este comprobante.</p>
       </footer>
     </div>
   );
