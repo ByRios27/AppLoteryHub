@@ -5,13 +5,14 @@ import { useStateContext } from '@/context/StateContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { iconMap } from '@/lib/icon-map';
 
 export default function SettingsPage() {
   const { lotteries, setLotteries } = useStateContext();
   const router = useRouter();
+  const { toast } = useToast();
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const handleIconChange = (id: string, newIcon: string) => {
