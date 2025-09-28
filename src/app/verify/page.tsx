@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useStateContext } from '@/context/StateContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -30,9 +31,10 @@ interface VerificationResult {
   };
 }
 
-export default function VerifyPage() {
+function VerifyPageContent() {
   const { sales, winners, lotteries } = useStateContext();
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const searchParams = useSearchParams();
 
   const form = useForm<z.infer<typeof verifySchema>>({
     resolver: zodResolver(verifySchema),
@@ -48,7 +50,6 @@ export default function VerifyPage() {
         saleId = values.qrCode;
     }
 
-
     if (!saleId) {
       setResult({ status: 'invalid', message: 'Código QR inválido o malformado.' });
       return;
@@ -61,8 +62,6 @@ export default function VerifyPage() {
       return;
     }
     
-    // For simplicity, this example just validates the first ticket. 
-    // A real implementation might need to handle multiple tickets in the QR.
     const ticket = sale.tickets[0];
 
     if (!ticket) {
@@ -103,6 +102,14 @@ export default function VerifyPage() {
     }
   };
 
+  useEffect(() => {
+    const saleIdFromUrl = searchParams.get('saleId');
+    if (saleIdFromUrl) {
+      form.setValue('qrCode', saleIdFromUrl);
+      handleVerification({ qrCode: saleIdFromUrl });
+    }
+  }, [searchParams, form]);
+
   return (
     <main className="flex flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-2xl">
@@ -120,7 +127,7 @@ export default function VerifyPage() {
                   render={({ field }) => (
                     <FormItem className="flex-grow">
                       <FormControl>
-                        <Input placeholder="Pegue el código del QR aquí..." {...field} />
+                        <Input placeholder="Pegue el código del QR aquí o use el enlace de verificación" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -168,4 +175,12 @@ export default function VerifyPage() {
       </div>
     </main>
   );
+}
+
+// We need to wrap the component in a Suspense boundary if we use useSearchParams
+// but since this is a simple page, we can just wrap it in a client component that does the check
+export default function VerifyPage() {
+    return (
+        <VerifyPageContent />
+    );
 }

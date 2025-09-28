@@ -77,7 +77,7 @@ export default function LotteryDetailPage() {
         }));
         const totalCost = ticketDetails.reduce((acc, ticket) => acc + ticket.cost, 0);
         const newSale: Sale = {
-            id: `S${Date.now()}`,
+            id: `S${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
             lotteryId: lotteryId,
             drawTime: activeDrawTime,
             customerName: values.customerName,
@@ -124,41 +124,38 @@ export default function LotteryDetailPage() {
     };
 
     const handleShare = async (sale: Sale) => {
-    const receiptElement = document.getElementById('receipt-content');
-    if (!receiptElement) {
-        toast({ title: "Error", description: "No se pudo encontrar el contenido del recibo.", variant: "destructive" });
-        return;
-    }
-
-    try {
-        const dataUrl = await htmlToImage.toPng(receiptElement, {
-            pixelRatio: 2,
-            quality: 1.0,
-        });
-        
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], "comprobante.png", { type: "image/png" });
-
-        if (navigator.share && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                files: [file],
-                title: 'Comprobante de Venta',
-                text: `Recibo de la venta ${sale.id}`,
-            });
-        } else {
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = 'comprobante.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            toast({ title: "Descargado", description: "El recibo ha sido descargado como una imagen." });
+        const receiptElement = document.getElementById('receipt-content');
+        if (!receiptElement) {
+            toast({ title: "Error", description: "No se pudo encontrar el contenido del recibo.", variant: "destructive" });
+            return;
         }
-    } catch (error) {
-        console.error('Error al generar o compartir la imagen del recibo', error);
-        toast({ title: "Error", description: "No se pudo generar o compartir la imagen del recibo.", variant: "destructive" });
-    }
-};
+
+        try {
+            const dataUrl = await htmlToImage.toPng(receiptElement, { pixelRatio: 2, quality: 1.0 });
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], "comprobante.png", { type: "image/png" });
+            const verificationUrl = `${window.location.origin}/verify?saleId=${sale.id}`;
+
+            if (navigator.share && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Comprobante de Venta',
+                    text: `¡Gracias por tu compra! Comprueba la autenticidad de tu boleto aquí: ${verificationUrl}`,
+                });
+            } else {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'comprobante.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast({ title: "Descargado", description: "El recibo se ha descargado como una imagen." });
+            }
+        } catch (error) {
+            console.error('Error al generar o compartir la imagen del recibo', error);
+            toast({ title: "Error", description: "No se pudo generar o compartir la imagen del recibo.", variant: "destructive" });
+        }
+    };
     
     const handlePrint = () => {
         const printContent = document.getElementById("receipt-content");
@@ -285,7 +282,7 @@ export default function LotteryDetailPage() {
                             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={editForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
-                                    <FormField control={editForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</Label><FormControl><Input {...field} /></FormControl></FormItem>)} />
+                                    <FormField control={editForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
                                 </div>
                                 <div className="space-y-2">
                                     <FormLabel>Boletos</FormLabel>
