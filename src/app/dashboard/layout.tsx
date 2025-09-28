@@ -86,7 +86,7 @@ export default function DashboardLayout({
   const mobileNav = (
     <nav className="grid gap-2 text-lg font-medium">
       <Link
-          href="/dashboard"
+          href="/dashboard/lotteries"
           className="flex items-center gap-2 text-lg font-semibold mb-4"
         >
           <AppLogoAndName />
