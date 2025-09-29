@@ -6,6 +6,7 @@ export interface Lottery {
   icon: string;
   numberOfDigits: number;
   logo?: string;
+  cost: number;
 }
 
 export interface TicketDetail {
@@ -44,6 +45,7 @@ export const lotteries: Lottery[] = [
     drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
     icon: "Sun",
     numberOfDigits: 2,
+    cost: 10,
   },
   {
     id: "la-grande",
@@ -52,6 +54,7 @@ export const lotteries: Lottery[] = [
     drawTimes: ["9:00 PM"],
     icon: "Star",
     numberOfDigits: 5,
+    cost: 25,
   },
   {
     id: "pega3",
@@ -60,6 +63,7 @@ export const lotteries: Lottery[] = [
     drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
     icon: "Dice5",
     numberOfDigits: 3,
+    cost: 15,
   },
   {
     id: "terminacion-2",
@@ -68,7 +72,6 @@ export const lotteries: Lottery[] = [
     drawTimes: ["11:00 AM", "9:00 PM"],
     icon: "Hash",
     numberOfDigits: 2,
+    cost: 5,
   },
 ];
-
-    

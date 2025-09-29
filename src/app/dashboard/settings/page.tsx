@@ -36,10 +36,10 @@ export default function SettingsPage() {
     }
   };
 
-  // --- Handlers for Lottery Icons ---
-  const handleIconChange = (id: string, newIcon: string) => {
+  // --- Handlers for Lottery ---
+  const handleLotteryChange = (id: string, field: string, value: string | number) => {
     const updatedLotteries = lotteries.map((lottery) =>
-      lottery.id === id ? { ...lottery, icon: newIcon } : lottery
+      lottery.id === id ? { ...lottery, [field]: value } : lottery
     );
     setLotteries(updatedLotteries);
   };
@@ -49,7 +49,10 @@ export default function SettingsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleIconChange(id, reader.result as string);
+        const updatedLotteries = lotteries.map((lottery) =>
+          lottery.id === id ? { ...lottery, icon: reader.result as string } : lottery
+        );
+        setLotteries(updatedLotteries);
       };
       reader.readAsDataURL(file);
     }
@@ -111,10 +114,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Card for Lottery Icons */}
+          {/* Card for Lotteries */}
           <Card>
             <CardHeader>
-              <CardTitle className='font-headline'>Gestionar Iconos de Loterías</CardTitle>
+              <CardTitle className='font-headline'>Gestionar Loterías</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {lotteries.map((lottery) => {
@@ -123,26 +126,56 @@ export default function SettingsPage() {
                   : iconMap[lottery.icon as keyof typeof iconMap] || iconMap.Ticket;
 
                 return (
-                  <div key={lottery.id} className="flex items-center justify-between p-3 rounded-lg bg-card-foreground/5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 flex items-center justify-center rounded-full bg-card overflow-hidden">
-                        {Icon ? (
-                          <Icon className="w-8 h-8 text-primary" />
-                        ) : (
-                          <img src={lottery.icon} alt={lottery.name} className="w-full h-full object-cover" />
-                        )}
-                      </div>
-                      <span className="font-medium text-foreground">{lottery.name}</span>
+                  <div key={lottery.id} className="p-3 rounded-lg bg-card-foreground/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-card overflow-hidden">
+                            {Icon ? (
+                            <Icon className="w-8 h-8 text-primary" />
+                            ) : (
+                            <img src={lottery.icon} alt={lottery.name} className="w-full h-full object-cover" />
+                            )}
+                        </div>
+                        <span className="font-medium text-foreground">{lottery.name}</span>
+                        </div>
+                        <Button onClick={() => triggerFileInput(lottery.id)} variant="outline">
+                        Cambiar Icono
+                        </Button>
+                        <Input
+                        type="file"
+                        className="hidden"
+                        ref={(el) => (fileInputRefs.current[lottery.id] = el)}
+                        onChange={(e) => handleLotteryIconFileChange(e, lottery.id)}
+                        />
                     </div>
-                    <Button onClick={() => triggerFileInput(lottery.id)} variant="outline">
-                      Cambiar Icono
-                    </Button>
-                    <Input
-                      type="file"
-                      className="hidden"
-                      ref={(el) => (fileInputRefs.current[lottery.id] = el)}
-                      onChange={(e) => handleLotteryIconFileChange(e, lottery.id)}
-                    />
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                        <div className="space-y-2">
+                            <Label htmlFor={`lotteryName-${lottery.id}`}>Nombre</Label>
+                            <Input
+                                id={`lotteryName-${lottery.id}`}
+                                value={lottery.name}
+                                onChange={(e) => handleLotteryChange(lottery.id, 'name', e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`lotteryDigits-${lottery.id}`}>Cifras</Label>
+                            <Input
+                                id={`lotteryDigits-${lottery.id}`}
+                                type="number"
+                                value={lottery.numberOfDigits}
+                                onChange={(e) => handleLotteryChange(lottery.id, 'numberOfDigits', parseInt(e.target.value, 10))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor={`lotteryCost-${lottery.id}`}>Valor</Label>
+                            <Input
+                                id={`lotteryCost-${lottery.id}`}
+                                type="number"
+                                value={lottery.cost}
+                                onChange={(e) => handleLotteryChange(lottery.id, 'cost', parseInt(e.target.value, 10))}
+                            />
+                        </div>
+                    </div>
                   </div>
                 );
               })}
