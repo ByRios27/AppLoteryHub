@@ -47,7 +47,10 @@ function getStoredData<T>(key: string, defaultValue: T): T {
 
   try {
     const parsed = JSON.parse(savedData);
-    return parsed ?? defaultValue;
+    // Ensure the parsed data is not null or undefined, and for arrays, ensure it's an array.
+    if (parsed === null || parsed === undefined) return defaultValue;
+    if (Array.isArray(defaultValue) && !Array.isArray(parsed)) return defaultValue;
+    return parsed;
   } catch (error) {
     console.error(`Error parsing ${key} from localStorage`, error);
     localStorage.removeItem(key); 
@@ -66,34 +69,29 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // This effect runs only once on the client after hydration
     const now = new Date();
 
-    // Clean and load sales
     const salesData = getStoredData('lotterySales', [] as Sale[]);
-    const validSales = salesData.filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
+    const validSales = (salesData || []).filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12);
     setSales(validSales);
 
-    // Clean and load winners
     const winnersData = getStoredData('lotteryWinners', [] as Winner[]);
-    const validWinners = winnersData.filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
+    const validWinners = (winnersData || []).filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24);
     setWinners(validWinners);
 
-    // Clean and load winning results
     const resultsData = getStoredData('winningResults', {} as WinningResults);
     const validResults: WinningResults = {};
     const sevenDaysAgo = subDays(now, 7);
-    Object.entries(resultsData).forEach(([dateStr, dailyResults]) => {
+    Object.entries(resultsData || {}).forEach(([dateStr, dailyResults]) => {
       if (new Date(dateStr) >= sevenDaysAgo) {
         validResults[dateStr] = dailyResults;
       }
     });
     setWinningResults(validResults);
 
-    // Load other data
-    setLotteries(getStoredData('appLotteries', initialLotteries));
-    setSpecialPlays(getStoredData('appSpecialPlays', []));
-    setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
+    setLotteries(getStoredData('appLotteries', initialLotteries) || initialLotteries);
+    setSpecialPlays(getStoredData('appSpecialPlays', []) || []);
+    setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }) || { appName: 'Lotto Hub', appLogo: null });
 
     setIsInitialized(true);
   }, []);
@@ -101,12 +99,12 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isInitialized) {
       try {
-        localStorage.setItem('lotterySales', JSON.stringify(sales));
-        localStorage.setItem('winningResults', JSON.stringify(winningResults));
-        localStorage.setItem('lotteryWinners', JSON.stringify(winners));
-        localStorage.setItem('appLotteries', JSON.stringify(lotteries));
-        localStorage.setItem('appSpecialPlays', JSON.stringify(specialPlays));
-        localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
+        localStorage.setItem('lotterySales', JSON.stringify(sales || []));
+        localStorage.setItem('winningResults', JSON.stringify(winningResults || {}));
+        localStorage.setItem('lotteryWinners', JSON.stringify(winners || []));
+        localStorage.setItem('appLotteries', JSON.stringify(lotteries || initialLotteries));
+        localStorage.setItem('appSpecialPlays', JSON.stringify(specialPlays || []));
+        localStorage.setItem('appCustomization', JSON.stringify(appCustomization || { appName: 'Lotto Hub', appLogo: null }));
       } catch (e) {
           console.error("Failed to save to localStorage", e);
       }
@@ -117,7 +115,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
       setWinningResults(prev => {
-          const newResults = { ...prev };
+          const newResults = { ...(prev || {}) };
           if (!newResults[today]) newResults[today] = {};
           if (!newResults[today][lotteryId]) newResults[today][lotteryId] = {};
           newResults[today][lotteryId][drawTime] = prizes;
@@ -147,7 +145,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   
   const updateWinnerPaymentStatus = (winnerId: string, paid: boolean) => {
     setWinners(prevWinners => 
-        prevWinners.map(winner => 
+        (prevWinners || []).map(winner => 
             winner.id === winnerId ? { ...winner, paid } : winner
         )
     );
@@ -155,12 +153,19 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const contextValue = {
-    sales, setSales, 
-    winningResults, addWinningResult,
-    winners, addWinner, updateWinnerPaymentStatus, 
-    lotteries, setLotteries, 
-    specialPlays, setSpecialPlays,
-    appCustomization, setAppCustomization, 
+    sales: sales || [], 
+    setSales, 
+    winningResults: winningResults || {},
+    addWinningResult,
+    winners: winners || [],
+    addWinner, 
+    updateWinnerPaymentStatus, 
+    lotteries: lotteries || [],
+    setLotteries, 
+    specialPlays: specialPlays || [],
+    setSpecialPlays,
+    appCustomization: appCustomization || { appName: 'Lotto Hub', appLogo: null },
+    setAppCustomization, 
     sellerId
   };
 
