@@ -6,7 +6,7 @@ export interface Lottery {
   icon: string; // Can be a key of iconMap or a URL
   numberOfDigits: number;
   cost: number; // Cost per fraction/ticket
-  drawTimes: string[]; // e.g., ['14:00', '20:00']
+  drawTimes: string[]; // e.g., ['02:00 PM', '08:00 PM']
 }
 
 export interface SpecialPlay {
@@ -15,10 +15,6 @@ export interface SpecialPlay {
   icon: string;
   numberOfDigits: number;
   cost: number; // Cost for this special play participation
-  appliesTo: {
-    lotteryId: string;
-    drawTimes: string[];
-  }[];
 }
 
 export interface Ticket {

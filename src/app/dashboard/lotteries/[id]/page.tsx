@@ -182,30 +182,25 @@ export default function LotterySalePage() {
 
     const renderDrawSelector = () => {
         if (isSpecial) {
-            const sp = item as SpecialPlay;
             return (
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4">
-                    {sp.appliesTo.map(({ lotteryId, drawTimes }) => {
-                        const lottery = lotteries.find(l => l.id === lotteryId);
-                        if (!lottery) return null;
-                        return (
-                            <div key={lotteryId}>
-                                <p className="font-semibold mb-2">{lottery.name}</p>
-                                <div className="space-y-2">
-                                    {drawTimes.map(time => (
-                                        <div key={time} className="flex items-center gap-2">
-                                            <Checkbox 
-                                                id={`${item.id}-${lotteryId}-${time}`}
-                                                onCheckedChange={(checked) => handleDrawSelectionChange(lotteryId, time, !!checked)}
-                                                checked={selectedDraws.some(d => d.lotteryId === lotteryId && d.drawTime === time)}
-                                            />
-                                            <Label htmlFor={`${item.id}-${lotteryId}-${time}`} className="font-normal">{time}</Label>
-                                        </div>
-                                    ))}
-                                </div>
+                    {lotteries.map(lottery => (
+                        <div key={lottery.id}>
+                            <p className="font-semibold mb-2">{lottery.name}</p>
+                            <div className="space-y-2">
+                                {lottery.drawTimes.map(time => (
+                                    <div key={time} className="flex items-center gap-2">
+                                        <Checkbox 
+                                            id={`${item.id}-${lottery.id}-${time}`}
+                                            onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
+                                            checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
+                                        />
+                                        <Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label>
+                                    </div>
+                                ))}
                             </div>
-                        );
-                    })}
+                        </div>
+                    ))}
                 </div>
             )
         } else {
