@@ -9,6 +9,18 @@ export interface Lottery {
   cost: number;
 }
 
+export interface SpecialPlay {
+    id: string;
+    name: string;
+    icon: string;
+    numberOfDigits: number;
+    cost: number;
+    appliesTo: {
+        lotteryId: string;
+        drawTimes: string[];
+    }[];
+}
+
 export interface TicketDetail {
   id: string;
   ticketNumber: string;
@@ -75,3 +87,5 @@ export const lotteries: Lottery[] = [
     cost: 5,
   },
 ];
+
+export const specialPlays: SpecialPlay[] = [];

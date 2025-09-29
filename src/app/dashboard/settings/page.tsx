@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, PlusCircle, Trash2 } from 'lucide-react';
 
 import { useStateContext } from '@/context/StateContext';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { iconMap } from '@/lib/icon-map';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { type SpecialPlay } from '@/lib/data';
 
 export default function SettingsPage() {
-  const { lotteries, setLotteries, appCustomization, setAppCustomization } = useStateContext();
+  const { lotteries, setLotteries, specialPlays, setSpecialPlays, appCustomization, setAppCustomization } = useStateContext();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -62,10 +64,66 @@ export default function SettingsPage() {
     fileInputRefs.current[id]?.click();
   };
 
+  // --- Handlers for Special Plays ---
+    const handleSpecialPlayChange = (id: string, field: string, value: any) => {
+        setSpecialPlays(prev => prev.map(sp => sp.id === id ? { ...sp, [field]: value } : sp));
+    };
+
+    const handleSpecialPlayIconChange = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setSpecialPlays(prev => prev.map(sp => sp.id === id ? { ...sp, icon: reader.result as string } : sp));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSpecialPlayAppliesToChange = (playId: string, lotteryId: string, drawTime: string, checked: boolean) => {
+        setSpecialPlays(prevPlays => prevPlays.map(play => {
+            if (play.id === playId) {
+                const lotteryIndex = play.appliesTo.findIndex(a => a.lotteryId === lotteryId);
+                if (lotteryIndex > -1) {
+                    const newDrawTimes = checked 
+                        ? [...play.appliesTo[lotteryIndex].drawTimes, drawTime] 
+                        : play.appliesTo[lotteryIndex].drawTimes.filter(t => t !== drawTime);
+                    const newAppliesTo = [...play.appliesTo];
+                    if (newDrawTimes.length === 0) {
+                        newAppliesTo.splice(lotteryIndex, 1);
+                    } else {
+                        newAppliesTo[lotteryIndex] = { ...newAppliesTo[lotteryIndex], drawTimes: newDrawTimes };
+                    }
+                    return { ...play, appliesTo: newAppliesTo };
+                } else if (checked) {
+                    return { ...play, appliesTo: [...play.appliesTo, { lotteryId, drawTimes: [drawTime] }] };
+                }
+            }
+            return play;
+        }));
+    };
+
+    const addNewSpecialPlay = () => {
+        const newPlay: SpecialPlay = {
+            id: `sp-${Date.now()}`,
+            name: 'Nueva Jugada',
+            icon: 'Ticket',
+            numberOfDigits: 2,
+            cost: 5,
+            appliesTo: [],
+        };
+        setSpecialPlays(prev => [...prev, newPlay]);
+    };
+
+    const removeSpecialPlay = (id: string) => {
+        setSpecialPlays(prev => prev.filter(sp => sp.id !== id));
+    };
+
+
   // --- Save Changes ---
   const handleSaveChanges = () => {
     toast({ title: '¡Guardado!', description: 'Los cambios se han guardado con éxito.' });
-    router.push('/dashboard');
+    router.push('/dashboard/lotteries');
   };
 
   return (
@@ -174,6 +232,100 @@ export default function SettingsPage() {
                                 value={lottery.cost}
                                 onChange={(e) => handleLotteryChange(lottery.id, 'cost', parseInt(e.target.value, 10))}
                             />
+                        </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+           {/* Card for Special Plays */}
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+                <div>
+                    <CardTitle className='font-headline'>Jugadas Especiales</CardTitle>
+                    <CardDescription>Crea y configura jugadas que aplican a múltiples sorteos.</CardDescription>
+                </div>
+                <Button onClick={addNewSpecialPlay}><PlusCircle className="mr-2 h-4 w-4"/>Añadir Jugada</Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {specialPlays.map((play) => {
+                const Icon = play.icon.startsWith('data:image')
+                  ? null
+                  : iconMap[play.icon as keyof typeof iconMap] || iconMap.Ticket;
+
+                return (
+                  <div key={play.id} className="p-3 rounded-lg bg-card-foreground/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-card overflow-hidden">
+                                {Icon ? (
+                                <Icon className="w-8 h-8 text-primary" />
+                                ) : (
+                                <img src={play.icon} alt={play.name} className="w-full h-full object-cover" />
+                                )}
+                            </div>
+                            <Input
+                                value={play.name}
+                                onChange={(e) => handleSpecialPlayChange(play.id, 'name', e.target.value)}
+                                className="text-base font-medium" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={() => triggerFileInput(play.id)} variant="outline" size="sm">Cambiar Icono</Button>
+                             <Button onClick={() => removeSpecialPlay(play.id)} variant="destructive" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <Input
+                            type="file"
+                            className="hidden"
+                            ref={(el) => (fileInputRefs.current[play.id] = el)}
+                            onChange={(e) => handleSpecialPlayIconChange(e, play.id)}
+                            accept="image/*"
+                        />
+                    </div>
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                        <div className="space-y-2">
+                            <Label>Cifras</Label>
+                            <Input
+                                type="number"
+                                value={play.numberOfDigits}
+                                onChange={(e) => handleSpecialPlayChange(play.id, 'numberOfDigits', parseInt(e.target.value, 10))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Valor</Label>
+                            <Input
+                                type="number"
+                                value={play.cost}
+                                onChange={(e) => handleSpecialPlayChange(play.id, 'cost', parseInt(e.target.value, 10))}
+                            />
+                        </div>
+                    </div>
+                     <div>
+                        <Label className="text-base font-medium">Aplicar a Sorteos:</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                            {lotteries.map(lottery => (
+                                <div key={lottery.id}>
+                                    <p className="font-semibold">{lottery.name}</p>
+                                    <div className="space-y-1 mt-1">
+                                        {lottery.drawTimes.map(time => {
+                                             const isChecked = play.appliesTo.some(a => a.lotteryId === lottery.id && a.drawTimes.includes(time));
+                                             return (
+                                                <div key={time} className="flex items-center gap-2">
+                                                    <Checkbox 
+                                                        id={`${play.id}-${lottery.id}-${time}`}
+                                                        checked={isChecked}
+                                                        onCheckedChange={(checked) => handleSpecialPlayAppliesToChange(play.id, lottery.id, time, !!checked)}
+                                                    />
+                                                    <Label htmlFor={`${play.id}-${lottery.id}-${time}`}>{time}</Label>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                   </div>
