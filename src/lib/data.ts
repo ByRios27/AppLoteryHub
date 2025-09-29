@@ -20,7 +20,7 @@ export interface SpecialPlay {
 export interface Ticket {
   id: string;
   ticketNumber: string;
-  fractions: number;
+  fractions: number[];
   cost: number;
 }
 
@@ -37,6 +37,7 @@ export interface Sale {
   tickets: Ticket[];
   totalCost: number;
   soldAt: Date;
+  sellerId?: string;
   specialPlayId?: string; // Link to special play if applicable
 }
 

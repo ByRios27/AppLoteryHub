@@ -4,6 +4,8 @@ import React from 'react';
 import QRCode from 'react-qr-code';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Share2 } from 'lucide-react';
 import { Sale, Lottery } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
 
@@ -18,9 +20,28 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
   const { appName, appLogo } = appCustomization;
   const ticketValue = JSON.stringify({ saleId: sale.id, ticketNumber: sale.tickets[0].ticketNumber });
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${appName} - Recibo de Venta`,
+        text: `Tu recibo para la lotería ${lottery.name}.`,
+        url: window.location.href, // O una URL específica para el recibo
+      }).catch(console.error);
+    } else {
+      // Fallback para navegadores que no son compatibles con la API de Web Share
+      alert('La función de compartir no es compatible con tu navegador.');
+    }
+  };
+
   return (
     <Card className="w-full max-w-sm mx-auto font-sans text-sm">
-      <CardHeader className="text-center p-4">
+      <CardHeader className="text-center p-4 relative">
+        <div className="absolute top-4 right-4">
+          <Button variant="ghost" size="icon" onClick={handleShare}>
+            <Share2 className="h-5 w-5" />
+            <span className="sr-only">Compartir</span>
+          </Button>
+        </div>
         <div className="flex items-center justify-center gap-2 mb-2">
           {appLogo && <img src={appLogo} alt="Logo" className="h-8 w-8" />}
           <CardTitle className="font-headline text-lg">{appName}</CardTitle>
@@ -40,7 +61,7 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
           </div>
           <div className="flex justify-between">
             <span className="font-semibold">Sorteo:</span>
-            <span>{sale.drawTime}</span>
+            <span>{sale.draws.map(d => d.drawTime).join(', ')}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold">Cliente:</span>
@@ -59,7 +80,7 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
               </div>
               <div className="flex justify-between">
                 <span className="font-semibold">Costo:</span>
-                <span>${(ticket.fractions.length * 0.20).toFixed(2)}</span>
+                <span>${(ticket.cost).toFixed(2)}</span>
               </div>
             </div>
           ))}
@@ -71,6 +92,7 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
           <Separator className="my-2" />
           <div className="text-center text-xs text-muted-foreground pt-2">
             <p>Vendido el: {new Date(sale.soldAt).toLocaleString()}</p>
+            <p>ID Vendedor: {sale.sellerId || 'N/A'}</p>
             <p>ID Ticket: {sale.id}</p>
           </div>
         </div>
