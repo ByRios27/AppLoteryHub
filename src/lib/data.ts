@@ -1,27 +1,27 @@
+import { type LucideIcon } from 'lucide-react';
+
 export interface Lottery {
   id: string;
   name: string;
-  description?: string;
-  drawTimes: string[];
-  icon: string;
+  icon: string; // Can be a key of iconMap or a URL
   numberOfDigits: number;
-  logo?: string;
-  cost: number;
+  cost: number; // Cost per fraction/ticket
+  drawTimes: string[]; // e.g., ['14:00', '20:00']
 }
 
 export interface SpecialPlay {
-    id: string;
-    name: string;
-    icon: string;
-    numberOfDigits: number;
-    cost: number;
-    appliesTo: {
-        lotteryId: string;
-        drawTimes: string[];
-    }[];
+  id: string;
+  name: string;
+  icon: string;
+  numberOfDigits: number;
+  cost: number; // Cost for this special play participation
+  appliesTo: {
+    lotteryId: string;
+    drawTimes: string[];
+  }[];
 }
 
-export interface TicketDetail {
+export interface Ticket {
   id: string;
   ticketNumber: string;
   fractions: number;
@@ -30,62 +30,21 @@ export interface TicketDetail {
 
 export interface Sale {
   id: string;
-  lotteryId: string;
-  drawTime: string;
-  customerName?: string;
-  customerPhone?: string;
-  tickets: TicketDetail[];
-  totalCost: number;
-  soldAt: Date;
-}
-
-export type Winner = {
-    id: string; // Corresponds to TicketDetail id
+  // For regular sales, this array will have one item.
+  // For special plays, it can have multiple items.
+  draws: {
     lotteryId: string;
     drawTime: string;
-    ticketNumber: string;
-    prizeTier: number;
-    drawDate: string;
-    paid: boolean; // Payment status
-};
+  }[];
+  customerName?: string;
+  customerPhone?: string;
+  tickets: Ticket[];
+  totalCost: number;
+  soldAt: Date;
+  specialPlayId?: string; // Link to special play if applicable
+}
 
-export const lotteries: Lottery[] = [
-  {
-    id: "loto-diaria",
-    name: "Loto Diaria",
-    description: "Sorteos diarios para ganar al instante.",
-    drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
-    icon: "Sun",
-    numberOfDigits: 2,
-    cost: 10,
-  },
-  {
-    id: "la-grande",
-    name: "La Grande",
-    description: "El premio mayor que cambia vidas.",
-    drawTimes: ["9:00 PM"],
-    icon: "Star",
-    numberOfDigits: 5,
-    cost: 25,
-  },
-  {
-    id: "pega3",
-    name: "Pega3",
-    description: "Tres oportunidades para ganar.",
-    drawTimes: ["11:00 AM", "3:00 PM", "9:00 PM"],
-    icon: "Dice5",
-    numberOfDigits: 3,
-    cost: 15,
-  },
-  {
-    id: "terminacion-2",
-    name: "Terminación 2",
-    description: "Gana con los dos últimos dígitos.",
-    drawTimes: ["11:00 AM", "9:00 PM"],
-    icon: "Hash",
-    numberOfDigits: 2,
-    cost: 5,
-  },
-];
-
-export const specialPlays: SpecialPlay[] = [];
+export interface AppCustomization {
+  appName: string;
+  appLogo: string; // URL or base64 string
+}

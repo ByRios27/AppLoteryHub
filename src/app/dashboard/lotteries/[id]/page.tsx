@@ -57,6 +57,12 @@ export default function LotterySalePage() {
     });
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "tickets" });
 
+    // Reset selected draws when the item (lottery/special play) changes.
+    useEffect(() => {
+        setSelectedDraws([]);
+        form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
+    }, [id, isSpecial, form]);
+
     if (!item) {
         notFound();
     }
@@ -75,35 +81,33 @@ export default function LotterySalePage() {
     };
 
     const onSubmit = async (values: z.infer<typeof currentSaleFormSchema>) => {
-        if (!item) return;
-
-        if (selectedDraws.length === 0) {
+        if (!item || selectedDraws.length === 0) {
             toast({ title: "Error", description: "Debes seleccionar al menos un sorteo.", variant: "destructive" });
             return;
         }
 
         const costPerFraction = item.cost;
-        const ticketDetailsTemplate = values.tickets.map(ticket => ({
-            ticketNumber: ticket.ticketNumber,
-            fractions: ticket.fractions,
-            cost: ticket.fractions * costPerFraction,
-        }));
-        const singleDrawTotalCost = ticketDetailsTemplate.reduce((acc, ticket) => acc + ticket.cost, 0);
+        const baseTotalCost = values.tickets.reduce((acc, ticket) => acc + (ticket.fractions * costPerFraction), 0);
+        const totalCost = baseTotalCost * (isSpecial ? selectedDraws.length : 1);
 
-        const newSales: Sale[] = selectedDraws.map(draw => ({
+        const newSale: Sale = {
             id: `S${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-            lotteryId: draw.lotteryId,
-            drawTime: draw.drawTime,
+            draws: selectedDraws,
             customerName: values.customerName,
             customerPhone: values.customerPhone,
-            tickets: ticketDetailsTemplate.map(td => ({ ...td, id: `T${Date.now()}-${td.ticketNumber}-${Math.random()}` })),
-            totalCost: singleDrawTotalCost,
+            tickets: values.tickets.map(ticket => ({
+                id: `T${Date.now()}-${ticket.ticketNumber}-${Math.random()}`,
+                ticketNumber: ticket.ticketNumber,
+                fractions: ticket.fractions,
+                cost: ticket.fractions * costPerFraction,
+            })),
+            totalCost: totalCost,
             soldAt: new Date(),
-            specialPlayId: isSpecial ? item.id : undefined
-        }));
-
-        setSales(prev => [...prev, ...newSales]);
-        toast({ title: "¡Venta Exitosa!", description: `Se crearon ${newSales.length} participaciones.` });
+            specialPlayId: isSpecial ? item.id : undefined,
+        };
+        
+        setSales(prev => [...prev, newSale]);
+        toast({ title: "¡Venta Exitosa!", description: `Se ha registrado la venta para ${selectedDraws.length} sorteo(s).` });
 
         form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
         setSelectedDraws([]);
@@ -111,12 +115,11 @@ export default function LotterySalePage() {
 
     const salesForItem = useMemo(() => {
         if (isSpecial) {
-             // Find all sales related to this special play via specialPlayId
             return sales.filter(s => s.specialPlayId === item.id)
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         } else {
-            // Find all sales for this specific lottery
-            return sales.filter(s => s.lotteryId === item.id)
+            // Filter sales where one of the draws belongs to the current lottery
+            return sales.filter(s => s.draws.some(d => d.lotteryId === item.id))
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         }
     }, [sales, item, isSpecial]);
@@ -126,14 +129,14 @@ export default function LotterySalePage() {
     const watchedSaleTickets = form.watch("tickets");
     const costMultiplier = selectedDraws.length > 0 ? selectedDraws.length : 1;
     const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
-    const totalSaleCost = baseTotalCost * costMultiplier;
+    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost; // for regular lotteries, multiplier is handled by creating separate sales if needed (though UI now pushes for single selection)
 
     const renderDrawSelector = () => {
         if (isSpecial) {
             const sp = item as SpecialPlay;
             return (
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4">
-                    {(sp).appliesTo.map(({ lotteryId, drawTimes }) => {
+                    {sp.appliesTo.map(({ lotteryId, drawTimes }) => {
                         const lottery = lotteries.find(l => l.id === lotteryId);
                         if (!lottery) return null;
                         return (
@@ -240,32 +243,41 @@ export default function LotterySalePage() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="font-headline">Ventas Realizadas</CardTitle>
-                            <CardDescription>Todas las ventas para {item.name}.</CardDescription>
+                            <CardDescription>Un resumen de todas las ventas para {item.name}.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Table>
+                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Loteria</TableHead>
-                                        <TableHead>Sorteo</TableHead>
+                                        <TableHead className="w-[35%]">Números</TableHead>
+                                        <TableHead className="w-[40%]">Sorteos</TableHead>
                                         <TableHead>Cliente</TableHead>
-                                        <TableHead>Boletos</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {salesForItem.length > 0 ? (salesForItem.map((sale) => {
-                                        const lotteryName = lotteries.find(l => l.id === sale.lotteryId)?.name || sale.lotteryId;
-                                        return (
-                                            <TableRow key={sale.id}>
-                                                <TableCell className="font-medium">{lotteryName}</TableCell>
-                                                <TableCell>{sale.drawTime}</TableCell>
-                                                <TableCell>{sale.customerName || "-"}<p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleTimeString()}</p></TableCell>
-                                                <TableCell className="text-center">{sale.tickets.length}</TableCell>
-                                                <TableCell className="text-right font-semibold">${sale.totalCost.toFixed(2)}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })) : (<TableRow><TableCell colSpan={5} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
+                                    {salesForItem.length > 0 ? (salesForItem.map((sale) => (
+                                        <TableRow key={sale.id}>
+                                            <TableCell className="font-mono text-lg font-bold">
+                                                {sale.tickets.map(t => t.ticketNumber).join(', ')}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                {sale.draws.map(draw => {
+                                                    const lotteryName = lotteries.find(l => l.id === draw.lotteryId)?.name || 'Lotería no encontrada';
+                                                    return (
+                                                        <span key={`${draw.lotteryId}-${draw.drawTime}`}>{lotteryName} - {draw.drawTime}</span>
+                                                    )
+                                                })}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {sale.customerName || "-"}
+                                                <p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleString()}</p>
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">${sale.totalCost.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))) : (<TableRow><TableCell colSpan={4} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
                                 </TableBody>
                             </Table>
                         </CardContent>

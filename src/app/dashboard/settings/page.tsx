@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImageIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { ImageIcon, PlusCircle, Trash2, X } from 'lucide-react';
 
 import { useStateContext } from '@/context/StateContext';
 import { Button } from '@/components/ui/button';
@@ -58,6 +58,37 @@ export default function SettingsPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleLotteryDrawTimeChange = (lotteryId: string, index: number, value: string) => {
+    setLotteries(prev => prev.map(l => {
+        if (l.id === lotteryId) {
+            const newDrawTimes = [...l.drawTimes];
+            newDrawTimes[index] = value;
+            return { ...l, drawTimes: newDrawTimes };
+        }
+        return l;
+    }));
+  };
+
+  const handleRemoveDrawTime = (lotteryId: string, index: number) => {
+      setLotteries(prev => prev.map(l => {
+          if (l.id === lotteryId) {
+              const newDrawTimes = l.drawTimes.filter((_, i) => i !== index);
+              return { ...l, drawTimes: newDrawTimes };
+          }
+          return l;
+      }));
+  };
+
+  const handleAddDrawTime = (lotteryId: string) => {
+      setLotteries(prev => prev.map(l => {
+          if (l.id === lotteryId && l.drawTimes.length < 4) {
+              const newDrawTimes = [...l.drawTimes, ''];
+              return { ...l, drawTimes: newDrawTimes };
+          }
+          return l;
+      }));
   };
 
   const triggerFileInput = (id: string) => {
@@ -184,17 +215,22 @@ export default function SettingsPage() {
                   : iconMap[lottery.icon as keyof typeof iconMap] || iconMap.Ticket;
 
                 return (
-                  <div key={lottery.id} className="p-3 rounded-lg bg-card-foreground/5 space-y-4">
+                  <div key={lottery.id} className="p-4 rounded-lg border bg-card/50 space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-card overflow-hidden">
+                        <div className="w-12 h-12 flex items-center justify-center rounded-full bg-background overflow-hidden border">
                             {Icon ? (
                             <Icon className="w-8 h-8 text-primary" />
                             ) : (
                             <img src={lottery.icon} alt={lottery.name} className="w-full h-full object-cover" />
                             )}
                         </div>
-                        <span className="font-medium text-foreground">{lottery.name}</span>
+                        <Input
+                            id={`lotteryName-${lottery.id}`}
+                            value={lottery.name}
+                            onChange={(e) => handleLotteryChange(lottery.id, 'name', e.target.value)}
+                            className="text-lg font-semibold"
+                        />
                         </div>
                         <Button onClick={() => triggerFileInput(lottery.id)} variant="outline">
                         Cambiar Icono
@@ -204,17 +240,10 @@ export default function SettingsPage() {
                         className="hidden"
                         ref={(el) => (fileInputRefs.current[lottery.id] = el)}
                         onChange={(e) => handleLotteryIconFileChange(e, lottery.id)}
+                        accept="image/*"
                         />
                     </div>
-                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                        <div className="space-y-2">
-                            <Label htmlFor={`lotteryName-${lottery.id}`}>Nombre</Label>
-                            <Input
-                                id={`lotteryName-${lottery.id}`}
-                                value={lottery.name}
-                                onChange={(e) => handleLotteryChange(lottery.id, 'name', e.target.value)}
-                            />
-                        </div>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                         <div className="space-y-2">
                             <Label htmlFor={`lotteryDigits-${lottery.id}`}>Cifras</Label>
                             <Input
@@ -225,7 +254,7 @@ export default function SettingsPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor={`lotteryCost-${lottery.id}`}>Valor</Label>
+                            <Label htmlFor={`lotteryCost-${lottery.id}`}>Valor Fracción</Label>
                             <Input
                                 id={`lotteryCost-${lottery.id}`}
                                 type="number"
@@ -234,6 +263,26 @@ export default function SettingsPage() {
                                 onChange={(e) => handleLotteryChange(lottery.id, 'cost', parseFloat(e.target.value) || 0)}
                             />
                         </div>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label>Horarios de Sorteo (24h)</Label>
+                        {lottery.drawTimes.map((time, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Input
+                                    type="time"
+                                    value={time}
+                                    onChange={(e) => handleLotteryDrawTimeChange(lottery.id, index, e.target.value)}
+                                />
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveDrawTime(lottery.id, index)}>
+                                    <X className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </div>
+                        ))}
+                        {lottery.drawTimes.length < 4 && (
+                            <Button type="button" variant="outline" size="sm" className='mt-2' onClick={() => handleAddDrawTime(lottery.id)}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Horario
+                            </Button>
+                        )}
                     </div>
                   </div>
                 );
@@ -257,10 +306,10 @@ export default function SettingsPage() {
                   : iconMap[play.icon as keyof typeof iconMap] || iconMap.Ticket;
 
                 return (
-                  <div key={play.id} className="p-3 rounded-lg bg-card-foreground/5 space-y-4">
+                  <div key={play.id} className="p-4 rounded-lg border bg-card/50 space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-card overflow-hidden">
+                            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-background overflow-hidden border">
                                 {Icon ? (
                                 <Icon className="w-8 h-8 text-primary" />
                                 ) : (
@@ -270,7 +319,7 @@ export default function SettingsPage() {
                             <Input
                                 value={play.name}
                                 onChange={(e) => handleSpecialPlayChange(play.id, 'name', e.target.value)}
-                                className="text-base font-medium" />
+                                className="text-lg font-semibold" />
                         </div>
                         <div className="flex items-center gap-2">
                             <Button onClick={() => triggerFileInput(play.id)} variant="outline" size="sm">Cambiar Icono</Button>
@@ -286,7 +335,7 @@ export default function SettingsPage() {
                             accept="image/*"
                         />
                     </div>
-                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                         <div className="space-y-2">
                             <Label>Cifras</Label>
                             <Input
@@ -306,12 +355,12 @@ export default function SettingsPage() {
                         </div>
                     </div>
                      <div>
-                        <Label className="text-base font-medium">Aplicar a Sorteos:</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                        <Label className="text-base font-medium">Aplica a los siguientes sorteos:</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 mt-2 rounded-md border p-4">
                             {lotteries.map(lottery => (
                                 <div key={lottery.id}>
                                     <p className="font-semibold">{lottery.name}</p>
-                                    <div className="space-y-1 mt-1">
+                                    <div className="space-y-2 mt-1">
                                         {lottery.drawTimes.map(time => {
                                              const isChecked = play.appliesTo.some(a => a.lotteryId === lottery.id && a.drawTimes.includes(time));
                                              return (
@@ -320,8 +369,9 @@ export default function SettingsPage() {
                                                         id={`${play.id}-${lottery.id}-${time}`}
                                                         checked={isChecked}
                                                         onCheckedChange={(checked) => handleSpecialPlayAppliesToChange(play.id, lottery.id, time, !!checked)}
+                                                        disabled={!time} // Disable checkbox if the draw time is not set
                                                     />
-                                                    <Label htmlFor={`${play.id}-${lottery.id}-${time}`}>{time}</Label>
+                                                    <Label htmlFor={`${play.id}-${lottery.id}-${time}`} className={!time ? 'text-muted-foreground' : ''}>{time || "(sin hora)"}</Label>
                                                 </div>
                                             )
                                         })}
