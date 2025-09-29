@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Sale, Winner, Lottery, lotteries as initialLotteries } from '@/lib/data';
+import { Sale, Winner, Lottery, SpecialPlay, lotteries as initialLotteries } from '@/lib/data';
 import { differenceInHours, subDays, format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -29,6 +29,8 @@ interface StateContextType {
   updateWinnerPaymentStatus: (winnerId: string, paid: boolean) => void;
   lotteries: Lottery[];
   setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
+  specialPlays: SpecialPlay[];
+  setSpecialPlays: React.Dispatch<React.SetStateAction<SpecialPlay[]>>;
   appCustomization: AppCustomization;
   setAppCustomization: React.Dispatch<React.SetStateAction<AppCustomization>>;
   sellerId: string;
@@ -57,6 +59,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [winningResults, setWinningResults] = useState<WinningResults>({});
   const [winners, setWinners] = useState<Winner[]>([]);
   const [lotteries, setLotteries] = useState<Lottery[]>(initialLotteries);
+  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>([]);
   const [appCustomization, setAppCustomization] = useState<AppCustomization>({ appName: 'Lotto Hub', appLogo: null });
   const [sellerId] = useState<string>('ventas01');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -88,6 +91,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
 
     // Load other data
     setLotteries(getStoredData('appLotteries', initialLotteries));
+    setSpecialPlays(getStoredData('appSpecialPlays', []));
     setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
 
     setIsInitialized(true);
@@ -100,12 +104,13 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('winningResults', JSON.stringify(winningResults));
         localStorage.setItem('lotteryWinners', JSON.stringify(winners));
         localStorage.setItem('appLotteries', JSON.stringify(lotteries));
+        localStorage.setItem('appSpecialPlays', JSON.stringify(specialPlays));
         localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
       } catch (e) {
           console.error("Failed to save to localStorage", e);
       }
     }
-  }, [sales, winningResults, winners, lotteries, appCustomization, isInitialized]);
+  }, [sales, winningResults, winners, lotteries, specialPlays, appCustomization, isInitialized]);
 
 
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
@@ -153,6 +158,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     winningResults, addWinningResult,
     winners, addWinner, updateWinnerPaymentStatus, 
     lotteries, setLotteries, 
+    specialPlays, setSpecialPlays,
     appCustomization, setAppCustomization, 
     sellerId
   };
