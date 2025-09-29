@@ -23,19 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useStateContext } from "@/context/StateContext";
 import ReceiptComponent from "@/components/receipt";
 
-const TICKET_PRICE_PER_FRACTION = 0.20;
-
-const ticketEntrySchema = z.object({
-    ticketNumber: z.string().length(2, "Debe tener 2 dígitos").regex(/^\d{2}$/, "Debe ser un número del 00 al 99"),
-    fractions: z.coerce.number().min(1, "Mínimo 1"),
-});
-
-const saleFormSchema = z.object({
-    customerName: z.string().optional(),
-    customerPhone: z.string().optional(),
-    tickets: z.array(ticketEntrySchema).min(1, "Añade al menos un boleto."),
-});
-
 export default function LotteryDetailPage() {
     const params = useParams();
     const lotteryId = params.id as string;
@@ -44,6 +31,21 @@ export default function LotteryDetailPage() {
     const { toast } = useToast();
 
     const lottery = useMemo(() => lotteries.find((l) => l.id === lotteryId), [lotteryId, lotteries]);
+
+    const ticketEntrySchema = useMemo(() => {
+        const digits = lottery?.numberOfDigits || 2;
+        return z.object({
+            ticketNumber: z.string().length(digits, { message: `Debe tener ${digits} dígitos` }).regex(new RegExp(`^\\d{${digits}}$`), `Debe ser un número de ${digits} dígitos`),
+            fractions: z.coerce.number().min(1, "Mínimo 1"),
+        });
+    }, [lottery]);
+
+    const saleFormSchema = useMemo(() => z.object({
+        customerName: z.string().optional(),
+        customerPhone: z.string().optional(),
+        tickets: z.array(ticketEntrySchema).min(1, "Añade al menos un boleto."),
+    }), [ticketEntrySchema]);
+
 
     const [activeDrawTime, setActiveDrawTime] = useState(lottery?.drawTimes[0] || "");
     const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
@@ -75,7 +77,7 @@ export default function LotteryDetailPage() {
         const ticketDetails: Omit<TicketDetail, 'id'>[] = values.tickets.map(ticket => ({
             ticketNumber: ticket.ticketNumber,
             fractions: ticket.fractions,
-            cost: ticket.fractions * TICKET_PRICE_PER_FRACTION,
+            cost: ticket.fractions * (lottery.cost || 0),
         }));
 
         const totalCost = ticketDetails.reduce((acc, ticket) => acc + ticket.cost, 0);
@@ -123,12 +125,12 @@ export default function LotteryDetailPage() {
     };
 
     const onEditSubmit = (values: z.infer<typeof saleFormSchema>) => {
-        if (!selectedSale) return;
+        if (!selectedSale || !lottery) return;
         const updatedTickets: TicketDetail[] = values.tickets.map(ticket => ({
             id: `T${Date.now()}-${ticket.ticketNumber}`,
             ticketNumber: ticket.ticketNumber,
             fractions: ticket.fractions,
-            cost: ticket.fractions * TICKET_PRICE_PER_FRACTION,
+            cost: ticket.fractions * (lottery.cost || 0),
         }));
         const totalCost = updatedTickets.reduce((acc, ticket) => acc + ticket.cost, 0);
         const updatedSale: Sale = { ...selectedSale, customerName: values.customerName, customerPhone: values.customerPhone, tickets: updatedTickets, totalCost: totalCost };
@@ -205,7 +207,7 @@ export default function LotteryDetailPage() {
 
     const Icon = lottery.icon.startsWith('data:image') ? null : (iconMap[lottery.icon as keyof typeof iconMap] || iconMap.Ticket);
     const watchedSaleTickets = saleForm.watch("tickets");
-    const totalSaleCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * TICKET_PRICE_PER_FRACTION), 0);
+    const totalSaleCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (lottery.cost || 0)), 0);
 
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
