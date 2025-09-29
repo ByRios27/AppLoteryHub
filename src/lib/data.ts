@@ -45,3 +45,13 @@ export interface AppCustomization {
   appName: string;
   appLogo: string; // URL or base64 string
 }
+
+export interface Winner {
+  id: string;
+  lotteryId: string;
+  drawTime: string;
+  ticketNumber: string;
+  prizeTier: number;
+  drawDate: string;
+  paid: boolean;
+}

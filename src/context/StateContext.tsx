@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Sale, Winner, Lottery, SpecialPlay, lotteries as initialLotteries } from '@/lib/data';
+import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
+import { lotteries as initialLotteries } from '@/lib/initial-data';
 import { differenceInHours, subDays, format } from 'date-fns';
 import { toast } from 'sonner';
 
