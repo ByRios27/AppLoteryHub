@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SaleReceiptModal } from "@/components/SaleReceiptModal";
 
 const ticketEntrySchema = (digits: number) => z.object({
     ticketNumber: z.string().length(digits, { message: `Debe tener ${digits} dígitos` }).regex(new RegExp(`^\\d{${digits}}$`), `Debe ser un número de ${digits} dígitos`),
@@ -65,7 +66,9 @@ export default function LotterySalePage() {
 
     const [selectedDraws, setSelectedDraws] = useState<{ lotteryId: string; drawTime: string; }[]>([]);
     const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
-    
+    const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+    const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<{sale: Sale, lottery: Lottery} | null>(null);
+
     const currentSaleFormSchema = useMemo(() => saleFormSchema(item?.numberOfDigits ?? 2), [item]);
 
     const form = useForm<z.infer<typeof currentSaleFormSchema>>({
@@ -145,6 +148,27 @@ export default function LotterySalePage() {
             toast({ title: "Venta Eliminada", description: "La venta ha sido eliminada con éxito." });
             setSaleToDelete(null); 
         }
+    };
+
+    const handleViewReceipt = (sale: Sale) => {
+        let lotteryForReceipt: Lottery | undefined;
+
+        if (isSpecial) {
+            const firstDraw = sale.draws[0];
+            if (firstDraw) {
+                lotteryForReceipt = lotteries.find(l => l.id === firstDraw.lotteryId);
+            }
+        } else {
+            lotteryForReceipt = item as Lottery;
+        }
+
+        if (!lotteryForReceipt) {
+            toast({ title: "Error", description: "No se pudo encontrar la lotería asociada a esta venta.", variant: "destructive" });
+            return;
+        }
+
+        setSelectedSaleForReceipt({ sale, lottery: lotteryForReceipt });
+        setIsReceiptModalOpen(true);
     };
 
     const handleShareSale = async (sale: Sale) => {
@@ -236,6 +260,13 @@ export default function LotterySalePage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <SaleReceiptModal 
+                open={isReceiptModalOpen} 
+                onOpenChange={setIsReceiptModalOpen}
+                sale={selectedSaleForReceipt?.sale}
+                lottery={selectedSaleForReceipt?.lottery}
+            />
 
             <div className="flex items-center gap-4">
                 <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/lotteries"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
@@ -343,7 +374,7 @@ export default function LotterySalePage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => toast({ title: 'Próximamente', description: 'La visualización de tickets estará disponible pronto.' })}><Eye className="mr-2 h-4 w-4"/>Ver Ticket</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleViewReceipt(sale)}><Eye className="mr-2 h-4 w-4"/>Ver Ticket</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => toast({ title: 'Próximamente', description: 'La edición de ventas estará disponible pronto.' })}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleShareSale(sale)}><Share2 className="mr-2 h-4 w-4"/>Compartir</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => setSaleToDelete(sale.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Borrar</DropdownMenuItem>

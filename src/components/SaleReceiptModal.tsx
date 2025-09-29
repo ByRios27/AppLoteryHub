@@ -1,22 +1,22 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SaleReceipt } from './SaleReceipt';
 import { Sale, Lottery } from '@/lib/data';
 import { X } from 'lucide-react';
 
 interface SaleReceiptModalProps {
-  sale: Sale;
-  lottery: Lottery;
-  children: React.ReactNode; // The trigger button or element
+  sale?: Sale;
+  lottery?: Lottery;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function SaleReceiptModal({ sale, lottery, children }: SaleReceiptModalProps) {
+export function SaleReceiptModal({ sale, lottery, open, onOpenChange }: SaleReceiptModalProps) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm p-0">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle>Recibo de Venta</DialogTitle>
