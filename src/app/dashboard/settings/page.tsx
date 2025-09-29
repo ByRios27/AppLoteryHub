@@ -109,7 +109,7 @@ export default function SettingsPage() {
             name: 'Nueva Jugada',
             icon: 'Ticket',
             numberOfDigits: 2,
-            cost: 5,
+            cost: 1.00,
             appliesTo: [],
         };
         setSpecialPlays(prev => [...prev, newPlay]);
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                                 id={`lotteryDigits-${lottery.id}`}
                                 type="number"
                                 value={lottery.numberOfDigits}
-                                onChange={(e) => handleLotteryChange(lottery.id, 'numberOfDigits', parseInt(e.target.value, 10))}
+                                onChange={(e) => handleLotteryChange(lottery.id, 'numberOfDigits', parseInt(e.target.value, 10) || 0)}
                             />
                         </div>
                         <div className="space-y-2">
@@ -229,8 +229,9 @@ export default function SettingsPage() {
                             <Input
                                 id={`lotteryCost-${lottery.id}`}
                                 type="number"
+                                step="0.01"
                                 value={lottery.cost}
-                                onChange={(e) => handleLotteryChange(lottery.id, 'cost', parseInt(e.target.value, 10))}
+                                onChange={(e) => handleLotteryChange(lottery.id, 'cost', parseFloat(e.target.value) || 0)}
                             />
                         </div>
                     </div>
@@ -291,15 +292,16 @@ export default function SettingsPage() {
                             <Input
                                 type="number"
                                 value={play.numberOfDigits}
-                                onChange={(e) => handleSpecialPlayChange(play.id, 'numberOfDigits', parseInt(e.target.value, 10))}
+                                onChange={(e) => handleSpecialPlayChange(play.id, 'numberOfDigits', parseInt(e.target.value, 10) || 0)}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Valor</Label>
                             <Input
                                 type="number"
+                                step="0.01"
                                 value={play.cost}
-                                onChange={(e) => handleSpecialPlayChange(play.id, 'cost', parseInt(e.target.value, 10))}
+                                onChange={(e) => handleSpecialPlayChange(play.id, 'cost', parseFloat(e.target.value) || 0)}
                             />
                         </div>
                     </div>
