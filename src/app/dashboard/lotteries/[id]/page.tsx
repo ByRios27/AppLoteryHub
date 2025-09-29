@@ -6,7 +6,7 @@ import { type Sale, type Lottery, type SpecialPlay } from "@/lib/data";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowLeft, PlusCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, PlusCircle, Trash2, MoreHorizontal, Eye, Edit, Share2 } from "lucide-react";
 import Link from "next/link";
 import { iconMap } from "@/lib/icon-map";
 
@@ -20,6 +20,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useStateContext } from "@/context/StateContext";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ticketEntrySchema = (digits: number) => z.object({
     ticketNumber: z.string().length(digits, { message: `Debe tener ${digits} dígitos` }).regex(new RegExp(`^\\d{${digits}}$`), `Debe ser un número de ${digits} dígitos`),
@@ -48,6 +64,7 @@ export default function LotterySalePage() {
     }, [id, lotteries, specialPlays, isSpecial]);
 
     const [selectedDraws, setSelectedDraws] = useState<{ lotteryId: string; drawTime: string; }[]>([]);
+    const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
     
     const currentSaleFormSchema = useMemo(() => saleFormSchema(item?.numberOfDigits ?? 2), [item]);
 
@@ -57,7 +74,6 @@ export default function LotterySalePage() {
     });
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "tickets" });
 
-    // Reset selected draws when the item (lottery/special play) changes.
     useEffect(() => {
         setSelectedDraws([]);
         form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
@@ -118,18 +134,51 @@ export default function LotterySalePage() {
             return sales.filter(s => s.specialPlayId === item.id)
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         } else {
-            // Filter sales where one of the draws belongs to the current lottery
             return sales.filter(s => s.draws.some(d => d.lotteryId === item.id))
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         }
     }, [sales, item, isSpecial]);
+
+    const handleDeleteSale = () => {
+        if (saleToDelete) {
+            setSales(prev => prev.filter(s => s.id !== saleToDelete));
+            toast({ title: "Venta Eliminada", description: "La venta ha sido eliminada con éxito." });
+            setSaleToDelete(null); 
+        }
+    };
+
+    const handleShareSale = async (sale: Sale) => {
+        const lotteryDetails = sale.draws.map(draw => {
+            const lottery = lotteries.find(l => l.id === draw.lotteryId);
+            return `${lottery?.name || 'Sorteo'} - ${draw.drawTime}`;
+        }).join('\n');
+
+        const ticketDetails = sale.tickets.map(t => `Nº ${t.ticketNumber}`).join(', ');
+
+        const shareText = `*Comprobante de Venta*\n\n*Números:* ${ticketDetails}\n*Sorteos:*\n${lotteryDetails}\n\n*Total:* $${sale.totalCost.toFixed(2)}`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Comprobante de Venta',
+                    text: shareText,
+                });
+                toast({ title: "¡Compartido!", description: "El ticket se ha compartido con éxito." });
+            } catch (error) {
+                toast({ title: "Error al compartir", description: "No se pudo compartir el ticket.", variant: "destructive" });
+            }
+        } else {
+            navigator.clipboard.writeText(shareText);
+            toast({ title: "¡Copiado!", description: "Los detalles del ticket se han copiado al portapapeles." });
+        }
+    };
 
     const Icon = item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.Ticket);
     
     const watchedSaleTickets = form.watch("tickets");
     const costMultiplier = selectedDraws.length > 0 ? selectedDraws.length : 1;
     const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
-    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost; // for regular lotteries, multiplier is handled by creating separate sales if needed (though UI now pushes for single selection)
+    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost;
 
     const renderDrawSelector = () => {
         if (isSpecial) {
@@ -180,6 +229,19 @@ export default function LotterySalePage() {
 
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+            <AlertDialog open={!!saleToDelete} onOpenChange={(open) => !open && setSaleToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>Esta acción no se puede deshacer. Esto eliminará permanentemente la venta.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteSale}>Sí, eliminar</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex items-center gap-4">
                 <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/lotteries"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
                  {Icon ? (
@@ -249,10 +311,11 @@ export default function LotterySalePage() {
                              <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[35%]">Números</TableHead>
-                                        <TableHead className="w-[40%]">Sorteos</TableHead>
+                                        <TableHead className="w-[25%]">Números</TableHead>
+                                        <TableHead className="w-[35%]">Sorteos</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -276,8 +339,24 @@ export default function LotterySalePage() {
                                                 <p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleString()}</p>
                                             </TableCell>
                                             <TableCell className="text-right font-semibold">${sale.totalCost.toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">
+                                                 <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Abrir menú</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => toast({ title: 'Próximamente', description: 'La visualización de tickets estará disponible pronto.' })}><Eye className="mr-2 h-4 w-4"/>Ver Ticket</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => toast({ title: 'Próximamente', description: 'La edición de ventas estará disponible pronto.' })}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleShareSale(sale)}><Share2 className="mr-2 h-4 w-4"/>Compartir</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => setSaleToDelete(sale.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Borrar</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
                                         </TableRow>
-                                    ))) : (<TableRow><TableCell colSpan={4} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
+                                    ))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">No se han registrado ventas.</TableCell></TableRow>)}
                                 </TableBody>
                             </Table>
                         </CardContent>
