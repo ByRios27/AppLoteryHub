@@ -10,15 +10,31 @@ import { Sale, Lottery } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
 
 interface SaleReceiptProps {
-  sale: Sale;
-  lottery: Lottery;
+  sale?: Sale;
+  lottery?: Lottery;
 }
 
 export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
   const { appCustomization } = useStateContext();
 
+  if (!sale || !lottery) {
+    return (
+      <Card className="w-full max-w-sm mx-auto font-sans text-sm">
+        <CardHeader className="text-center p-4">
+          <CardTitle className="font-headline text-lg">Recibo no disponible</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <p>Los datos para generar el recibo no están completos o son incorrectos.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const { appName, appLogo } = appCustomization;
-  const ticketValue = JSON.stringify({ saleId: sale.id, ticketNumber: sale.tickets[0].ticketNumber });
+  
+  // Safely access ticket number for QR Code
+  const firstTicketNumber = sale.tickets && sale.tickets.length > 0 ? sale.tickets[0].ticketNumber : 'N/A';
+  const ticketValue = JSON.stringify({ saleId: sale.id, ticketNumber: firstTicketNumber });
 
   const handleShare = () => {
     if (navigator.share) {
@@ -28,7 +44,6 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
         url: window.location.href, // O una URL específica para el recibo
       }).catch(console.error);
     } else {
-      // Fallback para navegadores que no son compatibles con la API de Web Share
       alert('La función de compartir no es compatible con tu navegador.');
     }
   };
@@ -61,37 +76,43 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
           </div>
           <div className="flex justify-between">
             <span className="font-semibold">Sorteo:</span>
-            <span>{sale.draws.map(d => d.drawTime).join(', ')}</span>
+            <span>{sale.draws && sale.draws.length > 0 ? sale.draws.map(d => d.drawTime).join(', ') : 'N/A'}</span>
           </div>
           <div className="flex justify-between">
             <span className="font-semibold">Cliente:</span>
             <span>{sale.customerName || 'N/A'}</span>
           </div>
           <Separator className="my-2" />
-          {sale.tickets.map((ticket, index) => (
-            <div key={index}>
-              <div className="flex justify-between font-bold text-base">
-                <span className="font-semibold">Número:</span>
-                <span>{ticket.ticketNumber}</span>
+          
+          {sale.tickets && sale.tickets.length > 0 ? (
+            sale.tickets.map((ticket, index) => (
+              <div key={index}>
+                <div className="flex justify-between font-bold text-base">
+                  <span className="font-semibold">Número:</span>
+                  <span>{ticket.ticketNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">Fracciones:</span>
+                  <span>{ticket.fractions ? ticket.fractions.join(', ') : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">Costo:</span>
+                  <span>${(ticket.cost).toFixed(2)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="font-semibold">Fracciones:</span>
-                <span>{ticket.fractions.join(', ')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-semibold">Costo:</span>
-                <span>${(ticket.cost).toFixed(2)}</span>
-              </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-center text-muted-foreground">No hay jugadas en este recibo.</p>
+          )}
+
           <Separator className="my-2" />
           <div className="flex justify-between font-bold text-lg">
             <span>Total Pagado:</span>
-            <span>${sale.totalCost.toFixed(2)}</span>
+            <span>${sale.totalCost ? sale.totalCost.toFixed(2) : '0.00'}</span>
           </div>
           <Separator className="my-2" />
           <div className="text-center text-xs text-muted-foreground pt-2">
-            <p>Vendido el: {new Date(sale.soldAt).toLocaleString()}</p>
+            <p>Vendido el: {sale.soldAt ? new Date(sale.soldAt).toLocaleString() : 'N/A'}</p>
             <p>ID Vendedor: {sale.sellerId || 'N/A'}</p>
             <p>ID Ticket: {sale.id}</p>
           </div>
