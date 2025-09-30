@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Header } from "@/components/ui/header";
+import Header from "@/components/ui/header";
 import { StateContextProvider } from "@/context/StateContext";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

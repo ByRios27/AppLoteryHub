@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Clover } from 'lucide-react';
 import { useStateContext } from '@/context/StateContext';
 
-export function Header() {
+export default function Header() {
   const { appCustomization } = useStateContext();
 
   return (
