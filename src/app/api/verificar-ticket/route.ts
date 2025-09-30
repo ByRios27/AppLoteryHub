@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { type NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs/promises';
 import { type Sale, type Lottery } from '@/lib/data';
@@ -74,51 +74,12 @@ async function readDb(): Promise<{ sales: Sale[]; lotteries: Lottery[] }> {
 }
 
 // --- Manejador Principal de la API ---
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<GetApiResponse | PostApiResponse>
-) {
-
-  // --- Lógica para peticiones POST (funcionalidad sin cambios, usa nueva simulación) ---
-  if (req.method === 'POST') {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Token de autorización no proporcionado o con formato incorrecto.' });
-      }
-      const idToken = authHeader.split('Bearer ')[1];
-
-      try {
-        await admin.auth().verifyIdToken(idToken);
-      } catch (authError: any) {
-        return res.status(403).json({ message: `Acceso denegado: ${authError.message}` });
-      }
-
-      const { code } = req.body;
-      if (!code || typeof code !== 'string') {
-        return res.status(400).json({ message: 'El parámetro { code } es requerido en el body.' });
-      }
-
-      const ticketData = await findTicketByCode(code);
-      if (!ticketData) {
-        return res.status(404).json({ message: 'Ticket no encontrado o inválido.' });
-      }
-
-      return res.status(200).json({ valido: true, numeros: ticketData.numeros });
-
-    } catch (error) {
-      console.error('Error en POST /api/verificar-ticket:', error);
-      return res.status(500).json({ message: 'Ocurrió un error interno en el servidor.' });
-    }
-  }
-
-  // --- Lógica para peticiones GET (AHORA PROTEGIDA) ---
-  if (req.method === 'GET') {
+export async function GET(req: NextRequest) {
     try {
       // 1. Verificar el token de autenticación
-      const authHeader = req.headers.authorization;
+      const authHeader = req.headers.get('authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Token de autorización no proporcionado o con formato incorrecto.' });
+        return NextResponse.json({ message: 'Token de autorización no proporcionado o con formato incorrecto.' }, { status: 401 });
       }
       const idToken = authHeader.split('Bearer ')[1];
 
@@ -126,7 +87,7 @@ export default async function handler(
       try {
         decodedToken = await admin.auth().verifyIdToken(idToken);
       } catch (authError: any) {
-        return res.status(401).json({ message: `Autenticación fallida: ${authError.message}` });
+        return NextResponse.json({ message: `Autenticación fallida: ${authError.message}` }, { status: 401 });
       }
 
       // 2. Verificar el rol del usuario
@@ -134,26 +95,26 @@ export default async function handler(
       const userRole = user.role;
 
       if (userRole !== 'admin' && userRole !== 'seller') {
-        return res.status(403).json({ message: 'Acceso denegado. No tienes los permisos necesarios.' });
+        return NextResponse.json({ message: 'Acceso denegado. No tienes los permisos necesarios.' }, { status: 403 });
       }
 
       // 3. Si la autorización es exitosa, proceder con la lógica original
-      const { ticketId } = req.query;
+      const ticketId = req.nextUrl.searchParams.get('ticketId');
       if (!ticketId || typeof ticketId !== 'string') {
-        return res.status(400).json({ message: 'El ID del ticket es requerido.' });
+        return NextResponse.json({ message: 'El ID del ticket es requerido.' }, { status: 400 });
       }
       
       const { sales, lotteries } = await readDb();
       const sale = sales.find(s => s.id === ticketId);
 
       if (!sale) {
-        return res.status(404).json({ message: 'Ticket no encontrado o inválido.' });
+        return NextResponse.json({ message: 'Ticket no encontrado o inválido.' }, { status: 404 });
       }
       
       const lottery = lotteries.find(l => l.id === sale.lotteryId);
       const lotteryName = lottery ? lottery.name : 'Lotería Desconocida';
 
-      return res.status(200).json({
+      return NextResponse.json({
         id: sale.id,
         customerName: sale.customerName,
         lotteryName: lotteryName,
@@ -164,13 +125,40 @@ export default async function handler(
     } catch (error) {
       console.error('Error en GET /api/verificar-ticket:', error);
       if (error instanceof Error && (error.message.includes('Usuario no encontrado'))) {
-          return res.status(403).json({ message: `Acceso denegado: ${error.message}` });
+          return NextResponse.json({ message: `Acceso denegado: ${error.message}` }, { status: 403 });
       }
-      return res.status(500).json({ message: 'Ocurrió un error interno en el servidor.' });
+      return NextResponse.json({ message: 'Ocurrió un error interno en el servidor.' }, { status: 500 });
     }
-  }
-  
-  // --- Manejar otros métodos HTTP ---
-  res.setHeader('Allow', ['GET', 'POST']);
-  return res.status(405).json({ message: `Method ${req.method} Not Allowed` });
+}
+
+export async function POST(req: NextRequest) {
+    try {
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return NextResponse.json({ message: 'Token de autorización no proporcionado o con formato incorrecto.' }, { status: 401 });
+      }
+      const idToken = authHeader.split('Bearer ')[1];
+
+      try {
+        await admin.auth().verifyIdToken(idToken);
+      } catch (authError: any) {
+        return NextResponse.json({ message: `Acceso denegado: ${authError.message}` }, { status: 403 });
+      }
+
+      const { code } = await req.json();
+      if (!code || typeof code !== 'string') {
+        return NextResponse.json({ message: 'El parámetro { code } es requerido en el body.' }, { status: 400 });
+      }
+
+      const ticketData = await findTicketByCode(code);
+      if (!ticketData) {
+        return NextResponse.json({ message: 'Ticket no encontrado o inválido.' }, { status: 404 });
+      }
+
+      return NextResponse.json({ valido: true, numeros: ticketData.numeros });
+
+    } catch (error) {
+      console.error('Error en POST /api/verificar-ticket:', error);
+      return NextResponse.json({ message: 'Ocurrió un error interno en el servidor.' }, { status: 500 });
+    }
 }

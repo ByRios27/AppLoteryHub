@@ -16,7 +16,6 @@ const navLinks = [
       { href: '/dashboard/results', label: 'Resultados' },
     ],
   },
-  { href: '/verify', icon: CheckSquare, label: 'Verificar Ticket' },
   { href: '/dashboard/settings', icon: Settings, label: 'Configuración' },
 ];
 

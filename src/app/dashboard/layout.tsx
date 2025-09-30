@@ -1,4 +1,4 @@
-''''use client';
+'use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,7 +8,6 @@ import {
   LayoutGrid,
   Trophy,
   Settings,
-  QrCode,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,12 +26,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Header } from "@/components/ui/header"; // Importar el nuevo Header
+import Header from "@/components/ui/header"; // Importar el nuevo Header
 
 const NAV_ITEMS = [
   { href: "/dashboard/lotteries", label: "Loterías", icon: LayoutGrid },
   { href: "/dashboard/results", label: "Resultados", icon: Trophy },
-  { href: "/dashboard/verify", label: "Verificar", icon: QrCode },
   { href: "/dashboard/settings", label: "Ajustes", icon: Settings },
 ];
 
@@ -156,4 +154,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-'''
