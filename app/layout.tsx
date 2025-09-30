@@ -12,10 +12,10 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className="dark">
-      <body className="font-body antialiased">
+      <body className="font-body antialiased flex flex-col min-h-screen">
         <StateContextProvider>
           <Header />
-          <main>{children}</main>
+          <main className="flex-grow p-4">{children}</main>
         </StateContextProvider>
       </body>
     </html>
