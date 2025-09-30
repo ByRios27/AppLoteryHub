@@ -32,7 +32,6 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
 
   const { appName, appLogo } = appCustomization;
   
-  // Safely access ticket number for QR Code
   const firstTicketNumber = sale.tickets && sale.tickets.length > 0 ? sale.tickets[0].ticketNumber : 'N/A';
   const ticketValue = JSON.stringify({ saleId: sale.id, ticketNumber: firstTicketNumber });
 
@@ -41,11 +40,27 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
       navigator.share({
         title: `${appName} - Recibo de Venta`,
         text: `Tu recibo para la lotería ${lottery.name}.`,
-        url: window.location.href, // O una URL específica para el recibo
+        url: window.location.href,
       }).catch(console.error);
     } else {
       alert('La función de compartir no es compatible con tu navegador.');
     }
+  };
+
+  const formatFractions = (fractions: any): string => {
+    if (fractions === null || fractions === undefined) {
+      return 'N/A';
+    }
+    if (Array.isArray(fractions)) {
+      return fractions.join(', ');
+    }
+    if (typeof fractions === 'string') {
+      return fractions.split(',').map(item => item.trim()).join(', ');
+    }
+    if (typeof fractions === 'number') {
+      return fractions.toString();
+    }
+    return String(fractions);
   };
 
   return (
@@ -93,7 +108,7 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold">Fracciones:</span>
-                  <span>{ticket.fractions ? ticket.fractions.join(', ') : 'N/A'}</span>
+                  <span>{formatFractions(ticket.fractions)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold">Costo:</span>
