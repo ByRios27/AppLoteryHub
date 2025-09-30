@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { StateContextProvider } from '@/context/StateContext';
 import Header from '@/components/ui/header';
+import '@/app/globals.css';
 
 interface RootLayoutProps {
   children: ReactNode;
