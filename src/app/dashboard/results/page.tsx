@@ -86,7 +86,7 @@ export default function ResultsPage() {
 
   const winnerDetails = useMemo(() => {
     return winners.map(winner => {
-        const sale = sales.find(s => s.tickets.some(t => t.id === winner.id)) || null;
+        const sale = sales.find(s => Array.isArray(s.tickets) && s.tickets.some(t => t.id === winner.id)) || null;
         return {
             ...winner,
             customerName: sale?.customerName || 'N/A',

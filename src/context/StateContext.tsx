@@ -135,11 +135,12 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     };
 
     setWinners(prevWinners => {
-      const safePrevWinners = Array.isArray(prevWinners) ? prevWinners : [];
-      if (safePrevWinners.some(winner => winner.id === newWinner.id)) {
-        return safePrevWinners; 
+      const isAlreadyWinner = Array.isArray(prevWinners) ? prevWinners.some(winner => winner.id === newWinner.id) : false;
+      if (isAlreadyWinner) {
+        return prevWinners;
       }
-      return [...safePrevWinners, newWinner];
+      const currentWinners = Array.isArray(prevWinners) ? prevWinners : [];
+      return [...currentWinners, newWinner];
     });
   };
   

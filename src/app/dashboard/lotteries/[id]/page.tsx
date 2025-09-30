@@ -88,12 +88,12 @@ export default function LotterySalePage() {
 
     const handleDrawSelectionChange = (lotteryId: string, drawTime: string, isChecked: boolean) => {
         setSelectedDraws(prev => {
-            const existing = prev.find(d => d.lotteryId === lotteryId && d.drawTime === drawTime);
+            const existing = Array.isArray(prev) ? prev.find(d => d.lotteryId === lotteryId && d.drawTime === drawTime) : undefined;
             if (isChecked && !existing) {
-                return [...prev, { lotteryId, drawTime }];
+                return [...(Array.isArray(prev) ? prev : []), { lotteryId, drawTime }];
             }
             if (!isChecked && existing) {
-                return prev.filter(d => d.lotteryId !== lotteryId || d.drawTime !== drawTime);
+                return (Array.isArray(prev) ? prev : []).filter(d => d.lotteryId !== lotteryId || d.drawTime !== drawTime);
             }
             return prev;
         });
@@ -137,7 +137,7 @@ export default function LotterySalePage() {
             return sales.filter(s => s.specialPlayId === item.id)
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         } else {
-            return sales.filter(s => s.draws.some(d => d.lotteryId === item.id))
+            return sales.filter(s => Array.isArray(s.draws) && s.draws.some(d => d.lotteryId === item.id))
                         .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         }
     }, [sales, item, isSpecial]);
@@ -154,7 +154,7 @@ export default function LotterySalePage() {
         let lotteryForReceipt: Lottery | undefined;
 
         if (isSpecial) {
-            const firstDraw = sale.draws[0];
+            const firstDraw = Array.isArray(sale.draws) ? sale.draws[0] : undefined;
             if (firstDraw) {
                 lotteryForReceipt = lotteries.find(l => l.id === firstDraw.lotteryId);
             }
@@ -172,12 +172,12 @@ export default function LotterySalePage() {
     };
 
     const handleShareSale = async (sale: Sale) => {
-        const lotteryDetails = sale.draws.map(draw => {
+        const lotteryDetails = Array.isArray(sale.draws) ? sale.draws.map(draw => {
             const lottery = lotteries.find(l => l.id === draw.lotteryId);
             return `${lottery?.name || 'Sorteo'} - ${draw.drawTime}`;
-        }).join('\n');
+        }).join('\n') : '';
 
-        const ticketDetails = sale.tickets.map(t => `Nº ${t.ticketNumber}`).join(', ');
+        const ticketDetails = Array.isArray(sale.tickets) ? sale.tickets.map(t => `Nº ${t.ticketNumber}`).join(', ') : '';
 
         const shareText = `*Comprobante de Venta*\n\n*Números:* ${ticketDetails}\n*Sorteos:*\n${lotteryDetails}\n\n*Total:* $${sale.totalCost.toFixed(2)}`;
 
@@ -217,7 +217,7 @@ export default function LotterySalePage() {
                                         <Checkbox 
                                             id={`${item.id}-${lottery.id}-${time}`}
                                             onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
-                                            checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
+                                            checked={Array.isArray(selectedDraws) && selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
                                         />
                                         <Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label>
                                     </div>
@@ -236,7 +236,7 @@ export default function LotterySalePage() {
                             <Checkbox 
                                 id={`${lottery.id}-${time}`}
                                 onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
-                                checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
+                                checked={Array.isArray(selectedDraws) && selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
                             />
                             <Label htmlFor={`${lottery.id}-${time}`} className="font-normal">{time}</Label>
                         </div>
@@ -348,11 +348,11 @@ export default function LotterySalePage() {
                                     {salesForItem.length > 0 ? (salesForItem.map((sale) => (
                                         <TableRow key={sale.id}>
                                             <TableCell className="font-mono text-lg font-bold">
-                                                {sale.tickets.map(t => t.ticketNumber).join(', ')}
+                                                {(Array.isArray(sale.tickets) ? sale.tickets : []).map(t => t.ticketNumber).join(', ')}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                {sale.draws.map(draw => {
+                                                {(Array.isArray(sale.draws) ? sale.draws : []).map(draw => {
                                                     const lotteryName = lotteries.find(l => l.id === draw.lotteryId)?.name || 'Lotería no encontrada';
                                                     return (
                                                         <span key={`${draw.lotteryId}-${draw.drawTime}`}>{lotteryName} - {draw.drawTime}</span>
