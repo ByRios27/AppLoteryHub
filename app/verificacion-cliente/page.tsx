@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Camera, Upload } from 'lucide-react';
 
 const verificationSchema = z.object({
   ticketId: z.string().min(1, 'Por favor, ingresa el código del ticket.'),
@@ -28,6 +29,7 @@ export default function TicketVerificationPage() {
   const [verificationResult, setVerificationResult] = useState<VerifiedTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof verificationSchema>>({
     resolver: zodResolver(verificationSchema),
@@ -58,13 +60,22 @@ export default function TicketVerificationPage() {
     }
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Aquí se implementaría la lógica para procesar el archivo de imagen
+      console.log('Archivo seleccionado:', file.name);
+      // Por ahora, solo se muestra el nombre del archivo en la consola.
+    }
+  };
+
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Verificar Ticket</CardTitle>
           <CardDescription className="text-center">
-            Ingresa el código de tu ticket o QR para ver los detalles.
+            Ingresa el código de tu ticket o sube una imagen para ver los detalles.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,6 +99,22 @@ export default function TicketVerificationPage() {
               </Button>
             </form>
           </Form>
+
+          <div className="mt-4 flex items-center justify-center space-x-2">
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-2 h-4 w-4" /> Subir Imagen
+            </Button>
+            <Button variant="outline">
+              <Camera className="mr-2 h-4 w-4" /> Escanear QR
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept="image/jpeg,image/png"
+            />
+          </div>
 
           {error && (
             <div className="mt-4 text-center text-red-500">
