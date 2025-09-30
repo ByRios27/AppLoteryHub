@@ -1,4 +1,3 @@
-'''
 import React from 'react';
 
 export default function DashboardPage() {
@@ -9,4 +8,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-'''

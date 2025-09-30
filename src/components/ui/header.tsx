@@ -1,4 +1,4 @@
-''''use client';
+'use client';
 
 import Link from 'next/link';
 import { Clover } from 'lucide-react';
@@ -20,4 +20,3 @@ export function Header() {
     </header>
   );
 }
-'''

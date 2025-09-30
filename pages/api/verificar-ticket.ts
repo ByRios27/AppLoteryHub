@@ -1,4 +1,4 @@
-'''import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import path from 'path';
 import fs from 'fs/promises';
 import { type Sale, type Lottery } from '@/lib/data';
@@ -174,4 +174,3 @@ export default async function handler(
   res.setHeader('Allow', ['GET', 'POST']);
   return res.status(405).json({ message: `Method ${req.method} Not Allowed` });
 }
-'''
