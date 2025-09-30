@@ -2,7 +2,8 @@
 
 import { ReactNode } from 'react';
 import { StateContextProvider } from '@/context/StateContext';
-import Header from '@/components/ui/header';
+import { Header } from '@/components/ui/header';
+import HeaderWrapper from '@/components/ui/HeaderWrapper';
 
 interface RootLayoutProps {
   children: ReactNode;
