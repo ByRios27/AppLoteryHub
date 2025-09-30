@@ -98,7 +98,7 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
             {sale.tickets.map((ticket) => (
             <div key={ticket.id} className="grid grid-cols-3">
                 <span>{ticket.ticketNumber}</span>
-                <span className="text-center">{`x${ticket.fractions}`}</span>
+                <span className="text-center">{`x${Array.isArray(ticket.fractions) ? ticket.fractions.join('/') : ticket.fractions}`}</span>
                 <span className="text-right">${ticket.cost.toFixed(2)}</span>
             </div>
             ))}

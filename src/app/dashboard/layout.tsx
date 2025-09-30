@@ -1,16 +1,14 @@
-'use client';
+''''use client';
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Clover,
   LogOut,
   PanelLeft,
   LayoutGrid,
   Trophy,
   Settings,
   QrCode,
-  ClipboardList,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useStateContext } from "@/context/StateContext";
+import { Header } from "@/components/ui/header"; // Importar el nuevo Header
 
 const NAV_ITEMS = [
   { href: "/dashboard/lotteries", label: "Loterías", icon: LayoutGrid },
@@ -59,20 +57,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { appCustomization } = useStateContext();
-
   const isActive = (path: string) => pathname.startsWith(path);
-
-  const AppLogoAndName = () => (
-    <div className="flex items-center gap-2 font-semibold">
-      {appCustomization.appLogo ? (
-        <img src={appCustomization.appLogo} alt={appCustomization.appName} className="h-7 w-7" />
-      ) : (
-        <Clover className="h-6 w-6 text-primary" />
-      )}
-      <span className="font-headline">{appCustomization.appName}</span>
-    </div>
-  );
 
   const desktopNav = (
     <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
@@ -83,13 +68,7 @@ export default function DashboardLayout({
   );
 
   const mobileNav = (
-    <nav className="grid gap-2 text-lg font-medium">
-      <Link
-          href="/dashboard/lotteries"
-          className="flex items-center gap-2 text-lg font-semibold mb-4"
-        >
-          <AppLogoAndName />
-      </Link>
+    <nav className="grid gap-2 text-lg font-medium mt-6">
       {NAV_ITEMS.map((item) => (
         <NavLink key={item.href} {...item} isActive={isActive(item.href)} />
       ))}
@@ -98,20 +77,22 @@ export default function DashboardLayout({
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+      {/* Barra lateral para escritorio */}
       <div className="hidden border-r bg-muted/40 md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/dashboard/lotteries" className="flex items-center gap-2 font-semibold">
-              <AppLogoAndName />
-            </Link>
+            {/* El logo ahora está en el Header global */}
           </div>
           <div className="flex-1">
             {desktopNav}
           </div>
         </div>
       </div>
+
+      {/* Contenido principal */}
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+          {/* Botón de menú para móvil */}
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -124,10 +105,22 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
-                {mobileNav}
+              <Header /> 
+              {mobileNav}
             </SheetContent>
           </Sheet>
-          <div className="w-full flex-1" />
+          
+          {/* Header con logo (visible en móvil, centrado en desktop) */}
+          <div className="w-full flex-1">
+            <div className="md:hidden">
+                <Header/>
+            </div>
+             <div className="hidden md:flex justify-center">
+                <Header/>
+            </div>
+          </div>
+
+          {/* Menú de usuario */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
@@ -155,12 +148,12 @@ export default function DashboardLayout({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-            {children}
+          {children}
         </main>
       </div>
     </div>
   );
 }
-
-    
+'''
