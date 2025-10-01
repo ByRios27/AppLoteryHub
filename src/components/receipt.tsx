@@ -8,11 +8,10 @@ import { format } from 'date-fns';
 import html2canvas from 'html2canvas';
 import { Button } from '@/components/ui/button';
 import { Share2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReceiptProps {
   sale: Sale;
-  lotteryName: string;
-  drawTime: string;
 }
 
 // Componente para generar y mostrar el QR como una imagen PNG
@@ -39,14 +38,15 @@ const QrCodeGenerator: React.FC<{ text: string }> = ({ text }) => {
 };
 
 
-const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
-  const { appCustomization, sellerId } = useStateContext();
+const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
+  const { appCustomization, sellerId, lotteries } = useStateContext();
+  const { toast } = useToast();
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Crear un objeto de verificación o un simple string para el QR
   const qrCodeValue = JSON.stringify({
       saleId: sale.id,
-      lottery: lotteryName,
+      lottery: sale.draws.map(d => lotteries.find(l => l.id === d.lotteryId)?.name).join(', '),
       date: sale.soldAt
   });
 
@@ -56,6 +56,7 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
       canvas.toBlob(async (blob) => {
         if (blob) {
           try {
+            // 1. Try to share
             await navigator.share({
               files: [new File([blob], 'receipt.png', { type: 'image/png' })],
               title: 'Comprobante de Venta',
@@ -63,6 +64,27 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
             });
           } catch (error) {
             console.error('Error sharing:', error);
+            try {
+                // 2. Try to copy to clipboard
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                toast({ title: "Recibo copiado", description: "El recibo ha sido copiado al portapapeles." });
+            } catch (copyError) {
+                console.error('Error copying to clipboard:', copyError);
+                // 3. Fallback to download
+                try {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'receipt.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    toast({ title: "Recibo descargado", description: "El recibo se ha guardado como una imagen." });
+                } catch (downloadError) {
+                    console.error('Error downloading:', downloadError);
+                    toast({ title: "Error", description: "No se pudo compartir, copiar ni descargar el recibo.", variant: "destructive" });
+                }
+            }
           }
         }
       });
@@ -86,7 +108,15 @@ const Receipt: React.FC<ReceiptProps> = ({ sale, lotteryName, drawTime }) => {
             <p><strong>Vendedor:</strong> {sellerId}</p>
             <p><strong>Cliente:</strong> {sale.customerName}</p>
             {sale.customerPhone && <p><strong>Teléfono:</strong> {sale.customerPhone}</p>}
-            <p><strong>Sorteo:</strong> {lotteryName} ({drawTime})</p>
+            <div>
+                <strong>Sorteos:</strong>
+                {sale.draws.map(draw => {
+                    const lottery = lotteries.find(l => l.id === draw.lotteryId);
+                    return (
+                        <p key={`${draw.lotteryId}-${draw.drawTime}`}>{lottery?.name} ({draw.drawTime})</p>
+                    )
+                })}
+            </div>
         </div>
 
         <div className="border-t border-b border-dashed border-gray-400 my-2 py-2">

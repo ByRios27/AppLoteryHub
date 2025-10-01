@@ -64,10 +64,12 @@ export default function LotterySalePage() {
             : lotteries.find(l => l.id === id);
     }, [id, lotteries, specialPlays, isSpecial]);
 
+    const [activeTab, setActiveTab] = useState("sell");
     const [selectedDraws, setSelectedDraws] = useState<{ lotteryId: string; drawTime: string; }[]>([]);
     const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
+    const [editingSale, setEditingSale] = useState<Sale | null>(null);
     const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-    const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<{sale: Sale, lottery: Lottery} | null>(null);
+    const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<{sale: Sale, item: Lottery | SpecialPlay} | null>(null);
 
     const currentSaleFormSchema = useMemo(() => saleFormSchema(item?.numberOfDigits ?? 2), [item]);
 
@@ -78,9 +80,11 @@ export default function LotterySalePage() {
     const { fields, append, remove } = useFieldArray({ control: form.control, name: "tickets" });
 
     useEffect(() => {
-        setSelectedDraws([]);
-        form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
-    }, [id, isSpecial, form]);
+        if (!editingSale) {
+            form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
+            setSelectedDraws([]);
+        }
+    }, [id, isSpecial, editingSale, form]);
 
     if (!item) {
         notFound();
@@ -88,15 +92,28 @@ export default function LotterySalePage() {
 
     const handleDrawSelectionChange = (lotteryId: string, drawTime: string, isChecked: boolean) => {
         setSelectedDraws(prev => {
-            const existing = Array.isArray(prev) ? prev.find(d => d.lotteryId === lotteryId && d.drawTime === drawTime) : undefined;
-            if (isChecked && !existing) {
-                return [...(Array.isArray(prev) ? prev : []), { lotteryId, drawTime }];
-            }
-            if (!isChecked && existing) {
-                return (Array.isArray(prev) ? prev : []).filter(d => d.lotteryId !== lotteryId || d.drawTime !== drawTime);
-            }
+            const existing = prev.find(d => d.lotteryId === lotteryId && d.drawTime === drawTime);
+            if (isChecked && !existing) return [...prev, { lotteryId, drawTime }];
+            if (!isChecked && existing) return prev.filter(d => d.lotteryId !== lotteryId || d.drawTime !== drawTime);
             return prev;
         });
+    };
+
+    const handleEditClick = (sale: Sale) => {
+        setEditingSale(sale);
+        form.reset({
+            customerName: sale.customerName || "",
+            customerPhone: sale.customerPhone || "",
+            tickets: sale.tickets.map(t => ({ ticketNumber: t.ticketNumber, fractions: t.fractions }))
+        });
+        setSelectedDraws(sale.draws);
+        setActiveTab("sell");
+    };
+
+    const cancelEdit = () => {
+        setEditingSale(null);
+        form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
+        setSelectedDraws([]);
     };
 
     const onSubmit = async (values: z.infer<typeof currentSaleFormSchema>) => {
@@ -107,38 +124,57 @@ export default function LotterySalePage() {
 
         const costPerFraction = item.cost;
         const baseTotalCost = values.tickets.reduce((acc, ticket) => acc + (ticket.fractions * costPerFraction), 0);
-        const totalCost = baseTotalCost * (isSpecial ? selectedDraws.length : 1);
+        const totalCost = baseTotalCost * (isSpecial && !('appliesTo' in item) ? selectedDraws.length : 1);
 
-        const newSale: Sale = {
-            id: `S${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-            draws: selectedDraws,
-            customerName: values.customerName,
-            customerPhone: values.customerPhone,
-            tickets: values.tickets.map(ticket => ({
-                id: `T${Date.now()}-${ticket.ticketNumber}-${Math.random()}`,
-                ticketNumber: ticket.ticketNumber,
-                fractions: ticket.fractions,
-                cost: ticket.fractions * costPerFraction,
-            })),
-            totalCost: totalCost,
-            soldAt: new Date(),
-            specialPlayId: isSpecial ? item.id : undefined,
-        };
-        
-        setSales(prev => [...prev, newSale]);
-        toast({ title: "¡Venta Exitosa!", description: `Se ha registrado la venta para ${selectedDraws.length} sorteo(s).` });
+        if (editingSale) {
+            // Update existing sale
+            const updatedSale: Sale = {
+                ...editingSale,
+                customerName: values.customerName,
+                customerPhone: values.customerPhone,
+                draws: selectedDraws,
+                tickets: values.tickets.map(ticket => ({
+                    ...ticket,
+                    id: `T${Date.now()}-${ticket.ticketNumber}`,
+                    cost: ticket.fractions * costPerFraction
+                })),
+                totalCost: totalCost,
+            };
+            setSales(prev => prev.map(s => s.id === editingSale.id ? updatedSale : s));
+            toast({ title: "¡Venta Actualizada!", description: "La venta ha sido modificada con éxito." });
+            setEditingSale(null);
+        } else {
+            // Create new sale
+            const newSale: Sale = {
+                id: `S${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+                draws: selectedDraws,
+                customerName: values.customerName,
+                customerPhone: values.customerPhone,
+                tickets: values.tickets.map(ticket => ({
+                    id: `T${Date.now()}-${ticket.ticketNumber}-${Math.random()}`,
+                    ticketNumber: ticket.ticketNumber,
+                    fractions: ticket.fractions,
+                    cost: ticket.fractions * costPerFraction,
+                })),
+                totalCost: totalCost,
+                soldAt: new Date(),
+                specialPlayId: isSpecial ? item.id : undefined,
+                lotteryId: !isSpecial ? item.id : undefined
+            };
+            setSales(prev => [...prev, newSale]);
+            toast({ title: "¡Venta Exitosa!", description: `Se ha registrado la venta para ${selectedDraws.length} sorteo(s).` });
+        }
 
         form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
         setSelectedDraws([]);
+        setActiveTab("sales");
     };
 
     const salesForItem = useMemo(() => {
         if (isSpecial) {
-            return sales.filter(s => s.specialPlayId === item.id)
-                        .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+            return sales.filter(s => s.specialPlayId === item.id).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         } else {
-            return sales.filter(s => Array.isArray(s.draws) && s.draws.some(d => d.lotteryId === item.id))
-                        .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+            return sales.filter(s => s.lotteryId === item.id).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
         }
     }, [sales, item, isSpecial]);
 
@@ -151,26 +187,14 @@ export default function LotterySalePage() {
     };
 
     const handleViewReceipt = (sale: Sale) => {
-        let lotteryForReceipt: Lottery | undefined;
-
-        if (isSpecial) {
-            const firstDraw = Array.isArray(sale.draws) ? sale.draws[0] : undefined;
-            if (firstDraw) {
-                lotteryForReceipt = lotteries.find(l => l.id === firstDraw.lotteryId);
-            }
-        } else {
-            lotteryForReceipt = item as Lottery;
-        }
-
-        if (!lotteryForReceipt) {
-            toast({ title: "Error", description: "No se pudo encontrar la lotería asociada a esta venta.", variant: "destructive" });
+        if (!item) {
+            toast({ title: "Error", description: "No se pudo encontrar el sorteo asociado. Intenta de nuevo.", variant: "destructive" });
             return;
         }
-
-        setSelectedSaleForReceipt({ sale, lottery: lotteryForReceipt });
+        setSelectedSaleForReceipt({ sale, item });
         setIsReceiptModalOpen(true);
     };
-
+    
     const handleShareSale = async (sale: Sale) => {
         const lotteryDetails = Array.isArray(sale.draws) ? sale.draws.map(draw => {
             const lottery = lotteries.find(l => l.id === draw.lotteryId);
@@ -197,6 +221,7 @@ export default function LotterySalePage() {
         }
     };
 
+
     const Icon = item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.Ticket);
     
     const watchedSaleTickets = form.watch("tickets");
@@ -204,52 +229,10 @@ export default function LotterySalePage() {
     const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
     const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost;
 
-    const renderDrawSelector = () => {
-        if (isSpecial) {
-            return (
-                 <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4">
-                    {lotteries.map(lottery => (
-                        <div key={lottery.id}>
-                            <p className="font-semibold mb-2">{lottery.name}</p>
-                            <div className="space-y-2">
-                                {lottery.drawTimes.map(time => (
-                                    <div key={time} className="flex items-center gap-2">
-                                        <Checkbox 
-                                            id={`${item.id}-${lottery.id}-${time}`}
-                                            onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
-                                            checked={Array.isArray(selectedDraws) && selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
-                                        />
-                                        <Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )
-        } else {
-            const lottery = item as Lottery;
-            return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border p-4">
-                    {lottery.drawTimes.map(time => (
-                        <div key={time} className="flex items-center gap-2">
-                            <Checkbox 
-                                id={`${lottery.id}-${time}`}
-                                onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
-                                checked={Array.isArray(selectedDraws) && selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
-                            />
-                            <Label htmlFor={`${lottery.id}-${time}`} className="font-normal">{time}</Label>
-                        </div>
-                    ))}
-                </div>
-            )
-        }
-    }
-
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
             <AlertDialog open={!!saleToDelete} onOpenChange={(open) => !open && setSaleToDelete(null)}>
-                <AlertDialogContent>
+                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>Esta acción no se puede deshacer. Esto eliminará permanentemente la venta.</AlertDialogDescription>
@@ -265,16 +248,12 @@ export default function LotterySalePage() {
                 open={isReceiptModalOpen} 
                 onOpenChange={setIsReceiptModalOpen}
                 sale={selectedSaleForReceipt?.sale}
-                lottery={selectedSaleForReceipt?.lottery}
+                item={selectedSaleForReceipt?.item}
             />
 
             <div className="flex items-center gap-4">
-                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/lotteries"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
-                 {Icon ? (
-                    <Icon className="h-10 w-10 text-primary" />
-                ) : (
-                    <img src={item.icon} alt={item.name} className="w-10 h-10 rounded-full object-cover" />
-                )}
+                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
+                {Icon ? <Icon className="h-10 w-10 text-primary" /> : <img src={item.icon} alt={item.name} className="w-10 h-10 rounded-full object-cover" />}
                 <div>
                     <h1 className="text-3xl font-bold font-headline">{item.name}</h1>
                     <p className="text-sm text-muted-foreground">
@@ -283,34 +262,67 @@ export default function LotterySalePage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="sell" className="w-full">
-                <TabsList className="grid w-full grid-cols-2"> 
-                    <TabsTrigger value="sell">Vender</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="sell">{editingSale ? "Editar Venta" : "Vender"}</TabsTrigger>
                     <TabsTrigger value="sales">Ventas Realizadas</TabsTrigger>
                 </TabsList>
                 <TabsContent value="sell" className="pt-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="font-headline">Vender Boletos</CardTitle>
+                            <CardTitle className="font-headline">{editingSale ? `Editando Venta...` : "Vender Boletos"}</CardTitle>
                             <CardDescription>
-                                {isSpecial ? "Crea una nueva venta para esta jugada especial." : `Crea una nueva venta para ${item.name}.`}
+                                {editingSale ? "Modifica los detalles de la venta." : `Crea una nueva venta para ${item.name}.`}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                     <div className="space-y-4">
+                                    <div className="space-y-4">
                                         <Label className="text-base font-medium">1. Selecciona los Sorteos</Label>
-                                        {renderDrawSelector()}
+                                        {isSpecial ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4">
+                                                {lotteries.map(lottery => (
+                                                    <div key={lottery.id}>
+                                                        <p className="font-semibold mb-2">{lottery.name}</p>
+                                                        <div className="space-y-2">
+                                                            {lottery.drawTimes.map(time => (
+                                                                <div key={time} className="flex items-center gap-2">
+                                                                    <Checkbox 
+                                                                        id={`${item.id}-${lottery.id}-${time}`}
+                                                                        onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
+                                                                        checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
+                                                                    />
+                                                                    <Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border p-4">
+                                                {(item as Lottery).drawTimes.map(time => (
+                                                    <div key={time} className="flex items-center gap-2">
+                                                        <Checkbox 
+                                                            id={`${item.id}-${time}`}
+                                                            onCheckedChange={(checked) => handleDrawSelectionChange(item.id, time, !!checked)}
+                                                            checked={selectedDraws.some(d => d.lotteryId === item.id && d.drawTime === time)}
+                                                        />
+                                                        <Label htmlFor={`${item.id}-${time}`} className="font-normal">{time}</Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={form.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                         <FormField control={form.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <FormLabel>2. Añade los Números ({item.numberOfDigits} cifras)</FormLabel>
+                                     <div className="space-y-2">
+                                        <Label>2. Añade los Números ({item.numberOfDigits} cifras)</Label>
                                         {fields.map((field, index) => (
                                             <div key={field.id} className="flex items-center gap-2">
                                                 <FormField control={form.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Número" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -320,15 +332,23 @@ export default function LotterySalePage() {
                                         ))}
                                         <Button type="button" variant="outline" size="sm" onClick={() => append({ ticketNumber: "", fractions: 1 })}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Número</Button>
                                     </div>
+
                                     <div className="text-xl font-bold text-right">Costo Total: <span className="text-primary">${totalSaleCost.toFixed(2)}</span></div>
-                                    <Button type="submit" className="w-full"><PlusCircle className="mr-2 h-4 w-4" /> Completar Venta</Button>
+                                    
+                                    <div className="flex justify-end gap-2 pt-4">
+                                        {editingSale && <Button type="button" variant="ghost" onClick={cancelEdit}>Cancelar Edición</Button>}
+                                        <Button type="submit" className="w-full sm:w-auto">
+                                            {editingSale ? <Edit className="mr-2 h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />} 
+                                            {editingSale ? "Actualizar Venta" : "Completar Venta"}
+                                        </Button>
+                                    </div>
                                 </form>
                             </Form>
                         </CardContent>
                     </Card>
                 </TabsContent>
                 <TabsContent value="sales" className="pt-6">
-                    <Card>
+                     <Card>
                         <CardHeader>
                             <CardTitle className="font-headline">Ventas Realizadas</CardTitle>
                             <CardDescription>Un resumen de todas las ventas para {item.name}.</CardDescription>
@@ -348,11 +368,11 @@ export default function LotterySalePage() {
                                     {salesForItem.length > 0 ? (salesForItem.map((sale) => (
                                         <TableRow key={sale.id}>
                                             <TableCell className="font-mono text-lg font-bold">
-                                                {(Array.isArray(sale.tickets) ? sale.tickets : []).map(t => t.ticketNumber).join(', ')}
+                                                {(sale.tickets || []).map(t => t.ticketNumber).join(', ')}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                {(Array.isArray(sale.draws) ? sale.draws : []).map(draw => {
+                                                {(sale.draws || []).map(draw => {
                                                     const lotteryName = lotteries.find(l => l.id === draw.lotteryId)?.name || 'Lotería no encontrada';
                                                     return (
                                                         <span key={`${draw.lotteryId}-${draw.drawTime}`}>{lotteryName} - {draw.drawTime}</span>
@@ -367,15 +387,10 @@ export default function LotterySalePage() {
                                             <TableCell className="text-right font-semibold">${sale.totalCost.toFixed(2)}</TableCell>
                                             <TableCell className="text-right">
                                                  <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                            <span className="sr-only">Abrir menú</span>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem onClick={() => handleViewReceipt(sale)}><Eye className="mr-2 h-4 w-4"/>Ver Ticket</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => toast({ title: 'Próximamente', description: 'La edición de ventas estará disponible pronto.' })}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEditClick(sale)}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleShareSale(sale)}><Share2 className="mr-2 h-4 w-4"/>Compartir</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => setSaleToDelete(sale.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Borrar</DropdownMenuItem>
                                                     </DropdownMenuContent>

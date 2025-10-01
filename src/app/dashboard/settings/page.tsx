@@ -17,7 +17,7 @@ import { TimePicker } from '@/components/ui/time-picker';
 const lotterySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido.'),
-  icon: z.string().min(1, 'El icono es requerido.'),
+  icon: z.string().optional(),
   numberOfDigits: z.coerce.number().min(1, 'Mínimo 1 dígito.').max(10, 'Máximo 10 dígitos.'),
   cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
   drawTimes: z.array(z.string()).min(1, 'Debe haber al menos un sorteo.').max(4, 'No más de 4 sorteos.'),
@@ -26,7 +26,7 @@ const lotterySchema = z.object({
 const specialPlaySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido.'),
-  icon: z.string().min(1, 'El icono es requerido.'),
+  icon: z.string().optional(),
   numberOfDigits: z.coerce.number().min(1, 'Mínimo 1 dígito.').max(10, 'Máximo 10 dígitos.'),
   cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
 });
@@ -53,14 +53,15 @@ export default function SettingsPage() {
   });
 
   const handleLotterySubmit = (values: z.infer<typeof lotterySchema>) => {
+    const lotteryData = { ...values, icon: values.icon || 'ticket' };
     if (editingLottery) {
       // Update existing lottery
-      setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...values, id: l.id } : l));
+      setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...lotteryData, id: l.id } : l));
       toast({ title: 'Lotería Actualizada', description: `La lotería ${values.name} ha sido actualizada.` });
       setEditingLottery(null);
     } else {
       // Add new lottery
-      const newLottery: Lottery = { ...values, id: `L${Date.now()}` };
+      const newLottery: Lottery = { ...lotteryData, id: `L${Date.now()}` };
       setLotteries([...lotteries, newLottery]);
       toast({ title: 'Lotería Añadida', description: `La lotería ${values.name} ha sido creada.` });
     }
@@ -68,12 +69,13 @@ export default function SettingsPage() {
   };
 
   const handleSpecialPlaySubmit = (values: z.infer<typeof specialPlaySchema>) => {
+    const specialPlayData = { ...values, icon: values.icon || 'ticket' };
     if (editingSpecialPlay) {
-      setSpecialPlays(specialPlays.map(sp => sp.id === editingSpecialPlay.id ? { ...sp, ...values, id: sp.id } : sp));
+      setSpecialPlays(specialPlays.map(sp => sp.id === editingSpecialPlay.id ? { ...sp, ...specialPlayData, id: sp.id } : sp));
       toast({ title: 'Jugada Especial Actualizada', description: `La jugada ${values.name} ha sido actualizada.` });
       setEditingSpecialPlay(null);
     } else {
-      const newSpecialPlay: SpecialPlay = { ...values, id: `SP${Date.now()}` };
+      const newSpecialPlay: SpecialPlay = { ...specialPlayData, id: `SP${Date.now()}` };
       setSpecialPlays([...specialPlays, newSpecialPlay]);
       toast({ title: 'Jugada Especial Añadida', description: `La jugada ${values.name} ha sido creada.` });
     }

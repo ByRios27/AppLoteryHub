@@ -1,15 +1,14 @@
 'use client';
 import React, { useMemo } from 'react';
-import { useLotteries, useSpecialPlays } from '@/context/StateContext';
-import { HeaderWrapper } from "@/components/ui/HeaderWrapper";
+import { useStateContext } from '@/context/StateContext';
+import HeaderWrapper from "@/components/ui/HeaderWrapper";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from 'next/link';
 import { iconMap } from '@/lib/icon-map';
 
 const LotteriesPage: React.FC = () => {
-    const { lotteries } = useLotteries();
-    const { specialPlays } = useSpecialPlays();
+    const { lotteries, specialPlays } = useStateContext();
 
     const combinedItems = useMemo(() => {
         const lotteryItems = lotteries.map(lottery => ({

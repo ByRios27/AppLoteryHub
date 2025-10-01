@@ -6,18 +6,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Share2 } from 'lucide-react';
-import { Sale, Lottery } from '@/lib/data';
+import { Sale, Lottery, SpecialPlay } from '@/lib/data';
 import { useStateContext } from '@/context/StateContext';
 
 interface SaleReceiptProps {
   sale?: Sale;
-  lottery?: Lottery;
+  item?: Lottery | SpecialPlay;
 }
 
-export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
-  const { appCustomization } = useStateContext();
+export function SaleReceipt({ sale, item: initialItem }: SaleReceiptProps) {
+  const { appCustomization, lotteries, specialPlays } = useStateContext();
 
-  if (!sale || !lottery) {
+  // Determine the item based on the sale's first draw if no initial item is provided
+  const item = React.useMemo(() => {
+    if (initialItem) return initialItem;
+    if (!sale || !sale.draws || sale.draws.length === 0) return undefined;
+    const primaryLotteryId = sale.draws[0].lotteryId;
+    return lotteries.find(l => l.id === primaryLotteryId) || specialPlays.find(sp => sp.id === primaryLotteryId);
+  }, [initialItem, sale, lotteries, specialPlays]);
+
+  if (!sale || !item) {
     return (
       <Card className="w-full max-w-sm mx-auto font-sans text-sm">
         <CardHeader className="text-center p-4">
@@ -31,16 +39,41 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
   }
 
   const { appName, appLogo } = appCustomization;
-  
+  const isSpecialPlay = 'appliesTo' in item;
+
   const firstTicketNumber = sale.tickets && sale.tickets.length > 0 ? sale.tickets[0].ticketNumber : 'N/A';
   const ticketValue = JSON.stringify({ saleId: sale.id, ticketNumber: firstTicketNumber });
 
   const handleShare = () => {
     if (navigator.share) {
+      let text = `*${appName} - Recibo de Venta*\n\n`;
+      text += `*Jugada:* ${item.name}\n`;
+      text += `*Cliente:* ${sale.customerName || 'N/A'}\n\n`;
+      
+      text += `*Números Jugados:*\n`;
+      sale.tickets.forEach(t => {
+          text += `- ${t.ticketNumber} (Costo: $${t.cost.toFixed(2)})\n`;
+      });
+      text += '\n';
+
+      if (isSpecialPlay) {
+          text += `*Sorteos Incluidos:*\n`;
+          sale.draws.forEach(d => {
+              const lotteryName = lotteries.find(l => l.id === d.lotteryId)?.name || 'Desconocido';
+              text += `- ${lotteryName} (${d.drawTime})\n`;
+          });
+      } else {
+          const drawTimes = sale.draws.map(d => d.drawTime).join(', ');
+          text += `*Sorteo:* ${drawTimes}\n`;
+      }
+
+      text += `\n*Total Pagado:* $${sale.totalCost.toFixed(2)}\n`;
+      text += `*ID Ticket:* ${sale.id}\n`;
+      text += `Vendido el: ${new Date(sale.soldAt).toLocaleString()}\n`;
+
       navigator.share({
         title: `${appName} - Recibo de Venta`,
-        text: `Tu recibo para la lotería ${lottery.name}.`,
-        url: window.location.href,
+        text: text,
       }).catch(console.error);
     } else {
       alert('La función de compartir no es compatible con tu navegador.');
@@ -48,18 +81,8 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
   };
 
   const formatFractions = (fractions: any): string => {
-    if (fractions === null || fractions === undefined) {
-      return 'N/A';
-    }
-    if (Array.isArray(fractions)) {
-      return fractions.join(', ');
-    }
-    if (typeof fractions === 'string') {
-      return fractions.split(',').map(item => item.trim()).join(', ');
-    }
-    if (typeof fractions === 'number') {
-      return fractions.toString();
-    }
+    if (fractions === null || fractions === undefined) return 'N/A';
+    if (Array.isArray(fractions)) return fractions.join(', ');
     return String(fractions);
   };
 
@@ -86,13 +109,25 @@ export function SaleReceipt({ sale, lottery }: SaleReceiptProps) {
         </div>
         <div className="space-y-2">
           <div className="flex justify-between">
-            <span className="font-semibold">Lotería:</span>
-            <span>{lottery.name}</span>
+            <span className="font-semibold">Jugada:</span>
+            <span>{item.name}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="font-semibold">Sorteo:</span>
-            <span>{sale.draws && sale.draws.length > 0 ? sale.draws.map(d => d.drawTime).join(', ') : 'N/A'}</span>
-          </div>
+
+          {isSpecialPlay ? (
+            <div>
+              <span className="font-semibold">Sorteos Incluidos:</span>
+              {sale.draws.map(draw => {
+                const lotteryName = lotteries.find(l => l.id === draw.lotteryId)?.name || 'Sorteo Desconocido';
+                return <div key={`${draw.lotteryId}-${draw.drawTime}`} className="text-xs flex justify-between"><span>- {lotteryName}</span><span>{draw.drawTime}</span></div>;
+              })}
+            </div>
+          ) : (
+            <div className="flex justify-between">
+              <span className="font-semibold">Sorteo:</span>
+              <span>{sale.draws.map(d => d.drawTime).join(', ')}</span>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <span className="font-semibold">Cliente:</span>
             <span>{sale.customerName || 'N/A'}</span>

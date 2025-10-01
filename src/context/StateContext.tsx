@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
-import { lotteries as initialLotteries } from '@/lib/initial-data';
+import { lotteries as initialLotteries, specialPlays as initialSpecialPlays } from '@/lib/initial-data';
 import { differenceInHours, subDays, format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -67,7 +67,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [winningResults, setWinningResults] = useState<WinningResults>({});
   const [winners, setWinners] = useState<Winner[]>([]);
   const [lotteries, setLotteries] = useState<Lottery[]>(() => getUniqueItems(initialLotteries));
-  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>([]);
+  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>(() => getUniqueItems(initialSpecialPlays));
   const [appCustomization, setAppCustomization] = useState<AppCustomization>({ appName: 'Lotto Hub', appLogo: null });
   const [sellerId] = useState<string>('ventas01');
   const [isInitialized, setIsInitialized] = useState(false);
@@ -92,7 +92,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
 
     // Load and deduplicate lotteries and special plays
     setLotteries(getUniqueItems(getStoredData('appLotteries', initialLotteries)));
-    setSpecialPlays(getUniqueItems(getStoredData('appSpecialPlays', [])));
+    setSpecialPlays(getUniqueItems(getStoredData('appSpecialPlays', initialSpecialPlays)));
     setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
 
     setIsInitialized(true);
@@ -108,7 +108,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
         
         // Deduplicate before saving
         localStorage.setItem('appLotteries', JSON.stringify(getUniqueItems(lotteries)));
-        localStorage.setItem('appSpecialPlays', JSON.stringify(getUniqueItems(specialPlays).slice(-100)));
+        localStorage.setItem('appSpecialPlays', JSON.stringify(getUniqueItems(specialPlays)));
         localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
 
       } catch (e) {

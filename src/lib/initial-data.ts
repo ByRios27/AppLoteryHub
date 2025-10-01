@@ -1,4 +1,4 @@
-import { Lottery } from './data';
+import { Lottery, SpecialPlay } from './data';
 
 export const lotteries: Lottery[] = [
     {
@@ -26,3 +26,5 @@ export const lotteries: Lottery[] = [
         drawTimes: ['09:00 PM'],
     },
 ];
+
+export const specialPlays: SpecialPlay[] = [];
