@@ -1,9 +1,9 @@
-import { type LucideIcon } from 'lucide-react';
+import { IconName } from './icon-map';
 
 export interface Lottery {
   id: string;
   name: string;
-  icon: string; // Can be a key of iconMap or a URL
+  icon: IconName; // key of iconMap
   numberOfDigits: number;
   cost: number; // Cost per fraction/ticket
   drawTimes: string[]; // e.g., ['02:00 PM', '08:00 PM']
@@ -12,7 +12,7 @@ export interface Lottery {
 export interface SpecialPlay {
   id: string;
   name: string;
-  icon: string;
+  icon: IconName;
   numberOfDigits: number;
   cost: number; // Cost for this special play participation
 }

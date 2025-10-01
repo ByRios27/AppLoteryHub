@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SaleReceipt } from './SaleReceipt';
 import { Sale, Lottery } from '@/lib/data';
@@ -20,6 +20,9 @@ export function SaleReceiptModal({ sale, lottery, open, onOpenChange }: SaleRece
       <DialogContent className="max-w-sm p-0">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle>Recibo de Venta</DialogTitle>
+          <DialogDescription className="sr-only">
+            Este es un recibo de la venta realizada.
+          </DialogDescription>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" className="absolute top-2 right-2">
               <X className="h-4 w-4" />

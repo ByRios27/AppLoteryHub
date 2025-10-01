@@ -9,7 +9,7 @@ export default function Header() {
 
   return (
     <header className="flex justify-center items-center py-4 px-4 bg-background border-b">
-      <Link href="/" className="flex items-center gap-2 font-semibold">
+      <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
         {appCustomization.appLogo ? (
           <img src={appCustomization.appLogo} alt={appCustomization.appName} className="h-8 w-8" />
         ) : (

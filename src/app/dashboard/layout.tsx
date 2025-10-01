@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
@@ -103,6 +106,10 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
+              <SheetHeader>
+                <SheetTitle className="sr-only">Menu de Navegación</SheetTitle>
+                <SheetDescription className="sr-only">Navegación principal de la aplicación</SheetDescription>
+              </SheetHeader>
               <Header /> 
               {mobileNav}
             </SheetContent>

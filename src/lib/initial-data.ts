@@ -4,7 +4,7 @@ export const lotteries: Lottery[] = [
     {
         id: 'loto-real',
         name: 'Loto Real',
-        icon: 'gem', // Example icon
+        icon: 'ticket',
         numberOfDigits: 6,
         cost: 25,
         drawTimes: ['02:00 PM', '08:00 PM'],
@@ -12,7 +12,7 @@ export const lotteries: Lottery[] = [
     {
         id: 'pega-4-real',
         name: 'Pega 4 Real',
-        icon: 'diamond', // Example icon
+        icon: 'trendingUp',
         numberOfDigits: 4,
         cost: 20,
         drawTimes: ['02:00 PM', '08:00 PM'],
@@ -20,7 +20,7 @@ export const lotteries: Lottery[] = [
     {
         id: 'loto-leidsa',
         name: 'Loto Leidsa',
-        icon: 'star', // Example icon
+        icon: 'star',
         numberOfDigits: 6,
         cost: 30,
         drawTimes: ['09:00 PM'],
