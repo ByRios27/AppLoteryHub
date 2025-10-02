@@ -89,6 +89,11 @@ export default function LotterySalePage() {
     if (!item) {
         notFound();
     }
+    
+    const watchedSaleTickets = form.watch("tickets");
+    const costMultiplier = selectedDraws.length > 0 ? selectedDraws.length : 1;
+    const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
+    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost;
 
     const handleDrawSelectionChange = (lotteryId: string, drawTime: string, isChecked: boolean) => {
         setSelectedDraws(prev => {
@@ -123,8 +128,6 @@ export default function LotterySalePage() {
         }
 
         const costPerFraction = item.cost;
-        const baseTotalCost = values.tickets.reduce((acc, ticket) => acc + (ticket.fractions * costPerFraction), 0);
-        const totalCost = baseTotalCost * (isSpecial && !('appliesTo' in item) ? selectedDraws.length : 1);
 
         if (editingSale) {
             // Update existing sale
@@ -138,7 +141,7 @@ export default function LotterySalePage() {
                     id: `T${Date.now()}-${ticket.ticketNumber}`,
                     cost: ticket.fractions * costPerFraction
                 })),
-                totalCost: totalCost,
+                totalCost: totalSaleCost, // USE THE CORRECT CALCULATED COST
             };
             setSales(prev => prev.map(s => s.id === editingSale.id ? updatedSale : s));
             toast({ title: "¡Venta Actualizada!", description: "La venta ha sido modificada con éxito." });
@@ -156,7 +159,7 @@ export default function LotterySalePage() {
                     fractions: ticket.fractions,
                     cost: ticket.fractions * costPerFraction,
                 })),
-                totalCost: totalCost,
+                totalCost: totalSaleCost, // USE THE CORRECT CALCULATED COST
                 soldAt: new Date(),
                 specialPlayId: isSpecial ? item.id : undefined,
                 lotteryId: !isSpecial ? item.id : undefined
@@ -223,11 +226,6 @@ export default function LotterySalePage() {
 
 
     const Icon = item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.Ticket);
-    
-    const watchedSaleTickets = form.watch("tickets");
-    const costMultiplier = selectedDraws.length > 0 ? selectedDraws.length : 1;
-    const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
-    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost;
 
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
