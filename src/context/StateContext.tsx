@@ -15,9 +15,9 @@ type WinningResults = {
   };
 };
 
-interface AppCustomization {
-    appName: string;
-    appLogo: string | null;
+interface BusinessSettings {
+    name: string;
+    logo: string | null;
 }
 
 // A generic helper to remove duplicate items from an array based on their 'id' property.
@@ -38,8 +38,8 @@ interface StateContextType {
   setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
   specialPlays: SpecialPlay[];
   setSpecialPlays: React.Dispatch<React.SetStateAction<SpecialPlay[]>>;
-  appCustomization: AppCustomization;
-  setAppCustomization: React.Dispatch<React.SetStateAction<AppCustomization>>;
+  businessSettings: BusinessSettings;
+  setBusinessSettings: React.Dispatch<React.SetStateAction<BusinessSettings>>;
   sellerId: string;
 }
 
@@ -51,13 +51,25 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [winners, setWinners] = useState<Winner[]>([]);
   const [lotteries, setLotteries] = useState<Lottery[]>(() => getUniqueItems(initialLotteries));
   const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>(() => getUniqueItems(initialSpecialPlays));
-  const [appCustomization, setAppCustomization] = useState<AppCustomization>({ appName: 'Lotto Hub', appLogo: null });
   const [sellerId] = useState<string>('ventas01');
 
-  // This will clear all data on every refresh
+  const [businessSettings, setBusinessSettings] = useState<BusinessSettings>(() => {
+    if (typeof window === 'undefined') {
+      return { name: 'Lotto Hub', logo: null };
+    }
+    try {
+      const savedSettings = localStorage.getItem('business-settings');
+      return savedSettings ? JSON.parse(savedSettings) : { name: 'Lotto Hub', logo: null };
+    } catch (error) {
+      return { name: 'Lotto Hub', logo: null };
+    }
+  });
+
   useEffect(() => {
-    localStorage.clear();
-  }, []);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('business-settings', JSON.stringify(businessSettings));
+    }
+  }, [businessSettings]);
 
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -90,7 +102,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     winners, addWinner, updateWinnerPaymentStatus, 
     lotteries, setLotteries, 
     specialPlays, setSpecialPlays,
-    appCustomization, setAppCustomization, 
+    businessSettings, setBusinessSettings, 
     sellerId
   };
 
