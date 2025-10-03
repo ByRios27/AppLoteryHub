@@ -6,7 +6,6 @@ import { lotteries as initialLotteries } from '@/lib/initial-data';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-// Custom type for winning results to avoid deeply nested objects
 type WinningResults = {
   [date: string]: {
     [lotteryId: string]: {
@@ -20,7 +19,6 @@ interface BusinessSettings {
     logo: string | null;
 }
 
-// A generic helper to remove duplicate items from an array based on their 'id' property.
 const getUniqueItems = <T extends { id: string }>(items: T[]): T[] => {
     if (!Array.isArray(items)) return [];
     return Array.from(new Map(items.map(item => [item.id, item])).values());
@@ -49,26 +47,32 @@ const defaultSpecialPlays: SpecialPlay[] = [
   {
     id: 'palet',
     name: 'Palet',
-    icon: 'game-console', // Placeholder icon
+    icon: 'game-console',
+    type: 'multi_pick',
     numberOfPicks: 2,
     cost: 1.00,
     enabled: false,
+    appliesTo: initialLotteries.map(l => ({ lotteryId: l.id })),
   },
   {
     id: 'tripleta',
     name: 'Tripleta',
-    icon: 'game-console', // Placeholder icon
+    icon: 'game-console',
+    type: 'multi_pick',
     numberOfPicks: 3,
     cost: 1.00,
-    enabled: false,
+    enabled: true, // Let's enable this by default for testing
+    appliesTo: initialLotteries.map(l => ({ lotteryId: l.id })),
   },
   {
     id: 'arma-tu-suerte',
     name: 'Arma tu suerte',
-    icon: 'game-console', // Placeholder icon
-    numberOfPicks: 4, // Example, can be configured
+    icon: 'game-console',
+    type: 'single_pick',
+    numberOfDigits: 4,
     cost: 1.00,
-    enabled: false,
+    enabled: true, // Let's enable this by default for testing
+    appliesTo: initialLotteries.filter(l => l.numberOfDigits === 4).map(l => ({ lotteryId: l.id })),
   },
 ];
 
@@ -84,7 +88,6 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     const savedSpecialPlays = localStorage.getItem('special-plays');
     const initialSpecialPlays = savedSpecialPlays ? JSON.parse(savedSpecialPlays) : [];
 
-    // Merge default and saved special plays
     const mergedSpecialPlays = defaultSpecialPlays.map(defaultPlay => {
         const savedPlay = initialSpecialPlays.find((p: SpecialPlay) => p.id === defaultPlay.id);
         return savedPlay ? { ...defaultPlay, ...savedPlay } : defaultPlay;
@@ -94,7 +97,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-      if (specialPlays.length > 0) { // Avoid overwriting on initial load
+      if (specialPlays.length > 0) {
         localStorage.setItem('special-plays', JSON.stringify(specialPlays));
       }
   }, [specialPlays]);

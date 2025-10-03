@@ -3,32 +3,33 @@ import { IconName } from './icon-map';
 export interface Lottery {
   id: string;
   name: string;
-  icon: IconName; // key of iconMap
+  icon: IconName | string; 
   numberOfDigits: number;
-  cost: number; // Cost per fraction/ticket
-  drawTimes: string[]; // e.g., ['02:00 PM', '08:00 PM']
+  cost: number; 
+  drawTimes: string[];
 }
 
 export interface SpecialPlay {
   id: string;
   name: string;
-  icon: IconName;
-  numberOfDigits: number;
-  cost: number; // Cost for this special play participation
+  icon: IconName | string;
+  cost: number;
   enabled: boolean;
+  type: 'multi_pick' | 'single_pick'; // Type of play
+  numberOfPicks?: number; // For multi_pick
+  numberOfDigits?: number; // For single_pick
+  appliesTo?: { lotteryId: string }[];
 }
 
 export interface Ticket {
   id: string;
   ticketNumber: string;
-  fractions: number[];
+  fractions: number;
   cost: number;
 }
 
 export interface Sale {
   id: string;
-  // For regular sales, this array will have one item.
-  // For special plays, it can have multiple items.
   draws: {
     lotteryId: string;
     drawTime: string;
@@ -39,12 +40,13 @@ export interface Sale {
   totalCost: number;
   soldAt: Date;
   sellerId?: string;
+  lotteryId?: string; // Link to regular lottery if applicable
   specialPlayId?: string; // Link to special play if applicable
 }
 
 export interface AppCustomization {
   appName: string;
-  appLogo: string; // URL or base64 string
+  appLogo: string; 
 }
 
 export interface Winner {
