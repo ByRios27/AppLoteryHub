@@ -15,6 +15,7 @@ export interface SpecialPlay {
   icon: IconName;
   numberOfDigits: number;
   cost: number; // Cost for this special play participation
+  enabled: boolean;
 }
 
 export interface Ticket {

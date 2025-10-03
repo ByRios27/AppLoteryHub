@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
-import { lotteries as initialLotteries, specialPlays as initialSpecialPlays } from '@/lib/initial-data';
+import { lotteries as initialLotteries } from '@/lib/initial-data';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -45,13 +45,59 @@ interface StateContextType {
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
+const defaultSpecialPlays: SpecialPlay[] = [
+  {
+    id: 'palet',
+    name: 'Palet',
+    icon: 'game-console', // Placeholder icon
+    numberOfPicks: 2,
+    cost: 1.00,
+    enabled: false,
+  },
+  {
+    id: 'tripleta',
+    name: 'Tripleta',
+    icon: 'game-console', // Placeholder icon
+    numberOfPicks: 3,
+    cost: 1.00,
+    enabled: false,
+  },
+  {
+    id: 'arma-tu-suerte',
+    name: 'Arma tu suerte',
+    icon: 'game-console', // Placeholder icon
+    numberOfPicks: 4, // Example, can be configured
+    cost: 1.00,
+    enabled: false,
+  },
+];
+
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [winningResults, setWinningResults] = useState<WinningResults>({});
   const [winners, setWinners] = useState<Winner[]>([]);
   const [lotteries, setLotteries] = useState<Lottery[]>(() => getUniqueItems(initialLotteries));
-  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>(() => getUniqueItems(initialSpecialPlays));
+  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>([]);
   const [sellerId] = useState<string>('ventas01');
+
+  useEffect(() => {
+    const savedSpecialPlays = localStorage.getItem('special-plays');
+    const initialSpecialPlays = savedSpecialPlays ? JSON.parse(savedSpecialPlays) : [];
+
+    // Merge default and saved special plays
+    const mergedSpecialPlays = defaultSpecialPlays.map(defaultPlay => {
+        const savedPlay = initialSpecialPlays.find((p: SpecialPlay) => p.id === defaultPlay.id);
+        return savedPlay ? { ...defaultPlay, ...savedPlay } : defaultPlay;
+    });
+
+    setSpecialPlays(mergedSpecialPlays);
+  }, []);
+
+  useEffect(() => {
+      if (specialPlays.length > 0) { // Avoid overwriting on initial load
+        localStorage.setItem('special-plays', JSON.stringify(specialPlays));
+      }
+  }, [specialPlays]);
 
   const [businessSettings, setBusinessSettings] = useState<BusinessSettings>(() => {
     if (typeof window === 'undefined') {

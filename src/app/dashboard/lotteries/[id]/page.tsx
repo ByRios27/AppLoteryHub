@@ -3,7 +3,7 @@
 import { useMemo, useEffect, useState } from "react";
 import { useParams, notFound, useSearchParams } from "next/navigation";
 import { type Sale, type Lottery, type SpecialPlay } from "@/lib/data";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ArrowLeft, PlusCircle, Trash2, MoreHorizontal, Eye, Edit, Share2 } from "lucide-react";
@@ -49,6 +49,12 @@ const saleFormSchema = (digits: number) => z.object({
     tickets: z.array(ticketEntrySchema(digits)).min(1, "Añade al menos un boleto."),
 });
 
+const specialPlaySaleSchema = z.object({
+    customerName: z.string().optional(),
+    customerPhone: z.string().optional(),
+    picks: z.array(z.string()).refine(val => val.every(v => v.trim() !== ''), { message: 'Todos los números son requeridos.' }),
+});
+
 export default function LotterySalePage() {
     const params = useParams();
     const searchParams = useSearchParams();
@@ -58,7 +64,7 @@ export default function LotterySalePage() {
     const { sales, setSales, lotteries, specialPlays } = useStateContext();
     const { toast } = useToast();
 
-    const item: (Lottery | SpecialPlay) | undefined = useMemo(() => {
+    const item = useMemo(() => {
         return isSpecial 
             ? specialPlays.find(sp => sp.id === id) 
             : lotteries.find(l => l.id === id);
@@ -71,161 +77,111 @@ export default function LotterySalePage() {
     const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
     const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<{sale: Sale, item: Lottery | SpecialPlay} | null>(null);
 
-    const currentSaleFormSchema = useMemo(() => saleFormSchema(item?.numberOfDigits ?? 2), [item]);
+    const isSpecialPlay = item && isSpecial;
+    const specialPlayItem = isSpecialPlay ? item as SpecialPlay : null;
+    const lotteryItem = !isSpecialPlay ? item as Lottery : null;
 
-    const form = useForm<z.infer<typeof currentSaleFormSchema>>({
-        resolver: zodResolver(currentSaleFormSchema),
+    const standardForm = useForm<z.infer<typeof saleFormSchema>>({
+        resolver: zodResolver(saleFormSchema(lotteryItem?.numberOfDigits ?? 2)),
         defaultValues: { customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] },
     });
-    const { fields, append, remove } = useFieldArray({ control: form.control, name: "tickets" });
 
+    const specialPlayForm = useForm<z.infer<typeof specialPlaySaleSchema>>({
+        resolver: zodResolver(specialPlaySaleSchema),
+        defaultValues: { customerName: "", customerPhone: "", picks: Array(specialPlayItem?.numberOfPicks || 0).fill('') },
+    });
+    
     useEffect(() => {
-        if (!editingSale) {
-            form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
-            setSelectedDraws([]);
-        }
-    }, [id, isSpecial, editingSale, form]);
+        standardForm.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
+        specialPlayForm.reset({ customerName: "", customerPhone: "", picks: Array(specialPlayItem?.numberOfPicks || 0).fill('') });
+        setSelectedDraws([]);
+        setEditingSale(null);
+    }, [id, isSpecial, standardForm, specialPlayForm, specialPlayItem]);
 
     if (!item) {
         notFound();
     }
-    
-    const watchedSaleTickets = form.watch("tickets");
-    const costMultiplier = selectedDraws.length > 0 ? selectedDraws.length : 1;
-    const baseTotalCost = watchedSaleTickets.reduce((acc, current) => acc + ((current.fractions || 0) * (item.cost || 0)), 0);
-    const totalSaleCost = isSpecial ? (baseTotalCost * costMultiplier) : baseTotalCost;
 
-    const handleDrawSelectionChange = (lotteryId: string, drawTime: string, isChecked: boolean) => {
-        setSelectedDraws(prev => {
-            const existing = prev.find(d => d.lotteryId === lotteryId && d.drawTime === drawTime);
-            if (isChecked && !existing) return [...prev, { lotteryId, drawTime }];
-            if (!isChecked && existing) return prev.filter(d => d.lotteryId !== lotteryId || d.drawTime !== drawTime);
-            return prev;
-        });
-    };
-
-    const handleEditClick = (sale: Sale) => {
-        setEditingSale(sale);
-        form.reset({
-            customerName: sale.customerName || "",
-            customerPhone: sale.customerPhone || "",
-            tickets: sale.tickets.map(t => ({ ticketNumber: t.ticketNumber, fractions: t.fractions }))
-        });
-        setSelectedDraws(sale.draws);
-        setActiveTab("sell");
-    };
-
-    const cancelEdit = () => {
-        setEditingSale(null);
-        form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
-        setSelectedDraws([]);
-    };
-
-    const onSubmit = async (values: z.infer<typeof currentSaleFormSchema>) => {
-        if (!item || selectedDraws.length === 0) {
+    const handleStandardSubmit = (values: z.infer<typeof saleFormSchema>) => {
+        if (selectedDraws.length === 0) {
             toast({ title: "Error", description: "Debes seleccionar al menos un sorteo.", variant: "destructive" });
             return;
         }
 
-        const costPerFraction = item.cost;
-
-        if (editingSale) {
-            // Update existing sale
-            const updatedSale: Sale = {
-                ...editingSale,
-                customerName: values.customerName,
-                customerPhone: values.customerPhone,
-                draws: selectedDraws,
-                tickets: values.tickets.map(ticket => ({
-                    ...ticket,
-                    id: `T${Date.now()}-${ticket.ticketNumber}`,
-                    cost: ticket.fractions * costPerFraction
-                })),
-                totalCost: totalSaleCost, // USE THE CORRECT CALCULATED COST
-            };
-            setSales(prev => prev.map(s => s.id === editingSale.id ? updatedSale : s));
-            toast({ title: "¡Venta Actualizada!", description: "La venta ha sido modificada con éxito." });
-            setEditingSale(null);
-        } else {
-            // Create new sale
-            const newSale: Sale = {
-                id: `S${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-                draws: selectedDraws,
-                customerName: values.customerName,
-                customerPhone: values.customerPhone,
-                tickets: values.tickets.map(ticket => ({
-                    id: `T${Date.now()}-${ticket.ticketNumber}-${Math.random()}`,
-                    ticketNumber: ticket.ticketNumber,
-                    fractions: ticket.fractions,
-                    cost: ticket.fractions * costPerFraction,
-                })),
-                totalCost: totalSaleCost, // USE THE CORRECT CALCULATED COST
-                soldAt: new Date(),
-                specialPlayId: isSpecial ? item.id : undefined,
-                lotteryId: !isSpecial ? item.id : undefined
-            };
-            setSales(prev => [...prev, newSale]);
-            toast({ title: "¡Venta Exitosa!", description: `Se ha registrado la venta para ${selectedDraws.length} sorteo(s).` });
-        }
-
-        form.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
+        const newSale: Sale = {
+            id: `S${Date.now()}`,
+            draws: selectedDraws,
+            customerName: values.customerName,
+            customerPhone: values.customerPhone,
+            tickets: values.tickets.map(ticket => ({
+                id: `T${Date.now()}-${ticket.ticketNumber}`,
+                ticketNumber: ticket.ticketNumber,
+                fractions: ticket.fractions,
+                cost: ticket.fractions * item.cost,
+            })),
+            totalCost: values.tickets.reduce((acc, t) => acc + (t.fractions * item.cost), 0) * selectedDraws.length,
+            soldAt: new Date(),
+            lotteryId: item.id
+        };
+        setSales(prev => [...prev, newSale]);
+        toast({ title: "¡Venta Exitosa!", description: `Venta registrada.` });
+        standardForm.reset({ customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] });
         setSelectedDraws([]);
         setActiveTab("sales");
     };
 
-    const salesForItem = useMemo(() => {
-        if (isSpecial) {
-            return sales.filter(s => s.specialPlayId === item.id).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
-        } else {
-            return sales.filter(s => s.lotteryId === item.id).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+    const handleSpecialPlaySubmit = (values: z.infer<typeof specialPlaySaleSchema>) => {
+        if (selectedDraws.length === 0) {
+            toast({ title: "Error", description: "Debes seleccionar al menos un sorteo.", variant: "destructive" });
+            return;
         }
-    }, [sales, item, isSpecial]);
+
+        const newSale: Sale = {
+            id: `S${Date.now()}`,
+            draws: selectedDraws,
+            customerName: values.customerName,
+            customerPhone: values.customerPhone,
+            tickets: [{
+                id: `T${Date.now()}`,
+                ticketNumber: values.picks.join(' - '),
+                fractions: 1,
+                cost: item.cost * selectedDraws.length,
+            }],
+            totalCost: item.cost * selectedDraws.length,
+            soldAt: new Date(),
+            specialPlayId: item.id,
+        };
+        setSales(prev => [...prev, newSale]);
+        toast({ title: "¡Venta Exitosa!", description: `Jugada especial '${item.name}' registrada.` });
+        specialPlayForm.reset({ customerName: "", customerPhone: "", picks: Array(specialPlayItem?.numberOfPicks || 0).fill('') });
+        setSelectedDraws([]);
+        setActiveTab("sales");
+    };
+    
+    const salesForItem = useMemo(() => {
+        return sales
+            .filter(s => isSpecial ? s.specialPlayId === id : s.lotteryId === id)
+            .sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+    }, [sales, id, isSpecial]);
 
     const handleDeleteSale = () => {
         if (saleToDelete) {
             setSales(prev => prev.filter(s => s.id !== saleToDelete));
-            toast({ title: "Venta Eliminada", description: "La venta ha sido eliminada con éxito." });
+            toast({ title: "Venta Eliminada", variant: "destructive" });
             setSaleToDelete(null); 
         }
     };
 
     const handleViewReceipt = (sale: Sale) => {
-        if (!item) {
-            toast({ title: "Error", description: "No se pudo encontrar el sorteo asociado. Intenta de nuevo.", variant: "destructive" });
-            return;
-        }
+        if (!item) return;
         setSelectedSaleForReceipt({ sale, item });
         setIsReceiptModalOpen(true);
     };
-    
-    const handleShareSale = async (sale: Sale) => {
-        const lotteryDetails = Array.isArray(sale.draws) ? sale.draws.map(draw => {
-            const lottery = lotteries.find(l => l.id === draw.lotteryId);
-            return `${lottery?.name || 'Sorteo'} - ${draw.drawTime}`;
-        }).join('\n') : '';
 
-        const ticketDetails = Array.isArray(sale.tickets) ? sale.tickets.map(t => `Nº ${t.ticketNumber}`).join(', ') : '';
+    const Icon = item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.ticket);
 
-        const shareText = `*Comprobante de Venta*\n\n*Números:* ${ticketDetails}\n*Sorteos:*\n${lotteryDetails}\n\n*Total:* $${sale.totalCost.toFixed(2)}`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: 'Comprobante de Venta',
-                    text: shareText,
-                });
-                toast({ title: "¡Compartido!", description: "El ticket se ha compartido con éxito." });
-            } catch (error) {
-                toast({ title: "Error al compartir", description: "No se pudo compartir el ticket.", variant: "destructive" });
-            }
-        } else {
-            navigator.clipboard.writeText(shareText);
-            toast({ title: "¡Copiado!", description: "Los detalles del ticket se han copiado al portapapeles." });
-        }
-    };
-
-
-    const Icon = item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.Ticket);
+    const watchedPicks = specialPlayForm.watch('picks');
+    const isSpecialPlayButtonDisabled = !watchedPicks || watchedPicks.some(p => p.trim() === '') || selectedDraws.length === 0;
 
     return (
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -250,36 +206,33 @@ export default function LotterySalePage() {
             />
 
             <div className="flex items-center gap-4">
-                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Atrás</span></Link></Button>
+                <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/sorteos"><ArrowLeft className="h-4 w-4" /></Link></Button>
                 {Icon ? <Icon className="h-10 w-10 text-primary" /> : <img src={item.icon} alt={item.name} className="w-10 h-10 rounded-full object-cover" />}
                 <div>
                     <h1 className="text-3xl font-bold font-headline">{item.name}</h1>
                     <p className="text-sm text-muted-foreground">
-                        {isSpecial ? "Jugada Especial" : `Sorteos: ${(item as Lottery).drawTimes.join(', ')}`}
+                        {isSpecial ? `Jugada Especial - ${specialPlayItem?.numberOfPicks} Números` : `Sorteos: ${(item as Lottery).drawTimes.join(', ')}`}
                     </p>
                 </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="sell">{editingSale ? "Editar Venta" : "Vender"}</TabsTrigger>
+                    <TabsTrigger value="sell">Vender</TabsTrigger>
                     <TabsTrigger value="sales">Ventas Realizadas</TabsTrigger>
                 </TabsList>
                 <TabsContent value="sell" className="pt-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="font-headline">{editingSale ? `Editando Venta...` : "Vender Boletos"}</CardTitle>
-                            <CardDescription>
-                                {editingSale ? "Modifica los detalles de la venta." : `Crea una nueva venta para ${item.name}.`}
-                            </CardDescription>
+                            <CardTitle className="font-headline">{isSpecial ? `Realizar Jugada` : "Vender Boletos"}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                    <div className="space-y-4">
-                                        <Label className="text-base font-medium">1. Selecciona los Sorteos</Label>
-                                        {isSpecial ? (
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4">
+                            {isSpecialPlay ? (
+                                <Form {...specialPlayForm}>
+                                    <form onSubmit={specialPlayForm.handleSubmit(handleSpecialPlaySubmit)} className="space-y-6">
+                                        <div>
+                                            <Label className="text-base font-medium">1. Selecciona los Sorteos Participantes</Label>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 rounded-md border p-4 mt-2">
                                                 {lotteries.map(lottery => (
                                                     <div key={lottery.id}>
                                                         <p className="font-semibold mb-2">{lottery.name}</p>
@@ -288,7 +241,7 @@ export default function LotterySalePage() {
                                                                 <div key={time} className="flex items-center gap-2">
                                                                     <Checkbox 
                                                                         id={`${item.id}-${lottery.id}-${time}`}
-                                                                        onCheckedChange={(checked) => handleDrawSelectionChange(lottery.id, time, !!checked)}
+                                                                        onCheckedChange={(checked) => setSelectedDraws(prev => checked ? [...prev, {lotteryId: lottery.id, drawTime: time}] : prev.filter(d => d.lotteryId !== lottery.id || d.drawTime !== time))}
                                                                         checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)}
                                                                     />
                                                                     <Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label>
@@ -298,50 +251,82 @@ export default function LotterySalePage() {
                                                     </div>
                                                 ))}
                                             </div>
-                                        ) : (
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border p-4">
-                                                {(item as Lottery).drawTimes.map(time => (
-                                                    <div key={time} className="flex items-center gap-2">
-                                                        <Checkbox 
-                                                            id={`${item.id}-${time}`}
-                                                            onCheckedChange={(checked) => handleDrawSelectionChange(item.id, time, !!checked)}
-                                                            checked={selectedDraws.some(d => d.lotteryId === item.id && d.drawTime === time)}
-                                                        />
-                                                        <Label htmlFor={`${item.id}-${time}`} className="font-normal">{time}</Label>
-                                                    </div>
+                                        </div>
+                                        <div>
+                                            <Label className="text-base font-medium">2. Ingresa los {specialPlayItem?.numberOfPicks} Números</Label>
+                                            <div className={`grid grid-cols-${specialPlayItem?.numberOfPicks || 2} gap-4 mt-2`}>
+                                                {Array.from({ length: specialPlayItem?.numberOfPicks || 0 }).map((_, index) => (
+                                                    <FormField
+                                                        key={index}
+                                                        control={specialPlayForm.control}
+                                                        name={`picks.${index}`}
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <Input placeholder={`Número ${index + 1}`} {...field} className="text-center font-mono text-lg" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
                                                 ))}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField control={specialPlayForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente (Opcional)</FormLabel><FormControl><Input placeholder="Nombre" {...field} /></FormControl></FormItem>)} />
+                                            <FormField control={specialPlayForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono (Opcional)</FormLabel><FormControl><Input placeholder="Teléfono" {...field} /></FormControl></FormItem>)} />
+                                        </div>
 
-                                     <div className="grid grid-cols-2 gap-4">
-                                        <FormField control={form.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    </div>
-
-                                     <div className="space-y-2">
-                                        <Label>2. Añade los Números ({item.numberOfDigits} cifras)</Label>
-                                        {fields.map((field, index) => (
-                                            <div key={field.id} className="flex items-center gap-2">
-                                                <FormField control={form.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Número" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name={`tickets.${index}.fractions`} render={({ field }) => (<FormItem className="w-24"><FormControl><Input type="number" placeholder="Cant." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                            </div>
-                                        ))}
-                                        <Button type="button" variant="outline" size="sm" onClick={() => append({ ticketNumber: "", fractions: 1 })}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Número</Button>
-                                    </div>
-
-                                    <div className="text-xl font-bold text-right">Costo Total: <span className="text-primary">${totalSaleCost.toFixed(2)}</span></div>
-                                    
-                                    <div className="flex justify-end gap-2 pt-4">
-                                        {editingSale && <Button type="button" variant="ghost" onClick={cancelEdit}>Cancelar Edición</Button>}
-                                        <Button type="submit" className="w-full sm:w-auto">
-                                            {editingSale ? <Edit className="mr-2 h-4 w-4"/> : <PlusCircle className="mr-2 h-4 w-4" />} 
-                                            {editingSale ? "Actualizar Venta" : "Completar Venta"}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </Form>
+                                        <div className="text-xl font-bold text-right">Costo Total: <span className="text-primary">${(item.cost * selectedDraws.length).toFixed(2)}</span></div>
+                                        
+                                        <div className="flex justify-end pt-4">
+                                            <Button type="submit" className="w-full sm:w-auto" disabled={isSpecialPlayButtonDisabled}>
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Completar Jugada
+                                            </Button>
+                                        </div>
+                                        {isSpecialPlayButtonDisabled && <p className='text-xs text-center text-red-500 mt-2'>Debes seleccionar al menos un sorteo y rellenar todos los números.</p>}
+                                    </form>
+                                </Form>
+                            ) : (
+                                <Form {...standardForm}>
+                                    <form onSubmit={standardForm.handleSubmit(handleStandardSubmit)} className="space-y-6">
+                                         <Label className="text-base font-medium">1. Selecciona los Sorteos</Label>
+                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border p-4">
+                                            {(item as Lottery).drawTimes.map(time => (
+                                                <div key={time} className="flex items-center gap-2">
+                                                    <Checkbox 
+                                                        id={`${item.id}-${time}`}
+                                                        onCheckedChange={(checked) => setSelectedDraws(prev => checked ? [...prev, {lotteryId: item.id, drawTime: time}] : prev.filter(d => d.drawTime !== time))}
+                                                        checked={selectedDraws.some(d => d.drawTime === time)}
+                                                    />
+                                                    <Label htmlFor={`${item.id}-${time}`} className="font-normal">{time}</Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <FormField control={standardForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente (Opcional)</FormLabel><FormControl><Input placeholder="Nombre" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                          <FormField control={standardForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono Cliente (Opcional)</FormLabel><FormControl><Input placeholder="Teléfono" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                        </div>
+                                         <div className="space-y-2">
+                                           <Label>2. Añade los Números ({(item as Lottery).numberOfDigits} cifras)</Label>
+                                             {standardForm.watch('tickets').map((field, index) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <FormField control={standardForm.control} name={`tickets.${index}.ticketNumber`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Número" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={standardForm.control} name={`tickets.${index}.fractions`} render={({ field }) => (<FormItem className="w-24"><FormControl><Input type="number" placeholder="Cant." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <Button type="button" variant="ghost" size="icon" onClick={() => standardForm.setValue('tickets', standardForm.getValues('tickets').filter((_, i) => i !== index))} disabled={standardForm.getValues('tickets').length <= 1}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                </div>
+                                            ))}
+                                            <Button type="button" variant="outline" size="sm" onClick={() => standardForm.setValue('tickets', [...standardForm.getValues('tickets'), {ticketNumber: "", fractions: 1}])}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Número</Button>
+                                        </div>
+                                        <div className="text-xl font-bold text-right">Costo Total: <span className="text-primary">${(standardForm.watch('tickets').reduce((acc, t) => acc + (t.fractions * item.cost), 0) * selectedDraws.length).toFixed(2)}</span></div>
+                                        <div className="flex justify-end gap-2 pt-4">
+                                            <Button type="submit" className="w-full sm:w-auto">
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Completar Venta
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </Form>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -353,44 +338,22 @@ export default function LotterySalePage() {
                         </CardHeader>
                         <CardContent>
                              <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[25%]">Números</TableHead>
-                                        <TableHead className="w-[35%]">Sorteos</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead className="text-right">Total</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                                <TableHeader><TableRow><TableHead>Números</TableHead><TableHead>Sorteos</TableHead><TableHead>Cliente</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
                                     {salesForItem.length > 0 ? (salesForItem.map((sale) => (
                                         <TableRow key={sale.id}>
-                                            <TableCell className="font-mono text-lg font-bold">
-                                                {(sale.tickets || []).map(t => t.ticketNumber).join(', ')}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                {(sale.draws || []).map(draw => {
-                                                    const lotteryName = lotteries.find(l => l.id === draw.lotteryId)?.name || 'Lotería no encontrada';
-                                                    return (
-                                                        <span key={`${draw.lotteryId}-${draw.drawTime}`}>{lotteryName} - {draw.drawTime}</span>
-                                                    )
-                                                })}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {sale.customerName || "-"}
-                                                <p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleString()}</p>
-                                            </TableCell>
+                                            <TableCell className="font-mono text-lg font-bold">{sale.tickets.map(t => t.ticketNumber).join(', ')}</TableCell>
+                                            <TableCell>{sale.draws.map(d => (lotteries.find(l=>l.id===d.lotteryId)?.name||"") + " - " + d.drawTime).join(', ')}</TableCell>
+                                            <TableCell>{sale.customerName || "-"}<p className="text-xs text-muted-foreground font-mono">{new Date(sale.soldAt).toLocaleString()}</p></TableCell>
                                             <TableCell className="text-right font-semibold">${sale.totalCost.toFixed(2)}</TableCell>
                                             <TableCell className="text-right">
                                                  <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleViewReceipt(sale)}><Eye className="mr-2 h-4 w-4"/>Ver Ticket</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleEditClick(sale)}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleShareSale(sale)}><Share2 className="mr-2 h-4 w-4"/>Compartir</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => setSaleToDelete(sale.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Borrar</DropdownMenuItem>
+                                                      <DropdownMenuItem onClick={() => handleViewReceipt(sale)}><Eye className="mr-2 h-4 w-4"/>Ver Comprobante</DropdownMenuItem>
+                                                      <DropdownMenuItem onClick={() => alert('Edit no implemented')}><Edit className="mr-2 h-4 w-4"/>Editar</DropdownMenuItem>
+                                                      <DropdownMenuItem onClick={() => alert('Share not implemented')}><Share2 className="mr-2 h-4 w-4"/>Compartir</DropdownMenuItem>
+                                                      <DropdownMenuItem onClick={() => setSaleToDelete(sale.id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4"/>Borrar</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>

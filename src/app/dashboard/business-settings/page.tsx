@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,6 +14,7 @@ import { useStateContext } from '@/context/StateContext';
 import { type Lottery, type SpecialPlay } from '@/lib/data';
 import { TimePicker } from '@/components/ui/time-picker';
 import DashboardHeader from '@/components/ui/DashboardHeader';
+import { Switch } from "@/components/ui/switch";
 
 const lotterySchema = z.object({
   id: z.string().optional(),
@@ -37,6 +38,14 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [editingLottery, setEditingLottery] = useState<Lottery | null>(null);
   const [editingSpecialPlay, setEditingSpecialPlay] = useState<SpecialPlay | null>(null);
+  const [paletEnabled, setPaletEnabled] = useState(false);
+  const [tripletaEnabled, setTripletaEnabled] = useState(false);
+  const [armaTuSuerteEnabled, setArmaTuSuerteEnabled] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const lotteryForm = useForm<z.infer<typeof lotterySchema>>({
     resolver: zodResolver(lotterySchema),
@@ -139,6 +148,7 @@ export default function SettingsPage() {
             <CardDescription>{editingLottery ? 'Modifica los detalles de la lotería.' : 'Configura una nueva lotería para vender boletos.'}</CardDescription>
           </CardHeader>
           <CardContent>
+           {isClient && (
             <Form {...lotteryForm}>
               <form onSubmit={lotteryForm.handleSubmit(handleLotterySubmit)} className="space-y-4">
                  <FormField
@@ -202,6 +212,7 @@ export default function SettingsPage() {
                 </div>
               </form>
             </Form>
+            )}
           </CardContent>
         </Card>
 
@@ -226,6 +237,49 @@ export default function SettingsPage() {
             {lotteries.length === 0 && <p className="text-sm text-muted-foreground text-center">No hay loterías configuradas.</p>}
             </CardContent>
         </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Jugadas Especiales</CardTitle>
+                <CardDescription>Activa o desactiva las jugadas especiales predefinidas.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isClient && (
+                <>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                      <FormLabel htmlFor="palet-switch">
+                          Palet
+                      </FormLabel>
+                      <Switch
+                          id="palet-switch"
+                          checked={paletEnabled}
+                          onCheckedChange={setPaletEnabled}
+                      />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                      <FormLabel htmlFor="tripleta-switch">
+                          Tripleta
+                      </FormLabel>
+                      <Switch
+                          id="tripleta-switch"
+                          checked={tripletaEnabled}
+                          onCheckedChange={setTripletaEnabled}
+                      />
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                      <FormLabel htmlFor="arma-tu-suerte-switch">
+                          Arma tu suerte
+                      </FormLabel>
+                      <Switch
+                          id="arma-tu-suerte-switch"
+                          checked={armaTuSuerteEnabled}
+                          onCheckedChange={setArmaTuSuerteEnabled}
+                      />
+                  </div>
+                </>
+              )}
+            </CardContent>
+        </Card>
         
         <Card>
           <CardHeader>
@@ -233,38 +287,40 @@ export default function SettingsPage() {
             <CardDescription>{editingSpecialPlay ? 'Modifica los detalles.' : 'Crea una nueva jugada especial.'}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Form {...specialPlayForm}>
-              <form onSubmit={specialPlayForm.handleSubmit(handleSpecialPlaySubmit)} className="space-y-4">
-                 <FormField
-                    control={specialPlayForm.control}
-                    name="icon"
-                    render={({ field }) => (
-                        <FormItem className="flex items-center gap-4">
-                        <img src={field.value || '/placeholder.svg'} alt="Icono Jugada" className="w-16 h-16 rounded-full object-cover bg-muted"/>
-                        <div className="flex-1">
-                            <FormLabel>Icono de la Jugada</FormLabel>
-                             <div className="flex items-center gap-2">
-                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'specialPlay')} className="hidden" id="icon-upload-special"/>
-                                <label htmlFor="icon-upload-special" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
-                                    <Upload className="mr-2 h-4 w-4" /> Subir Icono
-                                </label>
-                            </div>
-                            <FormMessage />
-                        </div>
-                        </FormItem>
-                    )}
-                 />
-                <FormField control={specialPlayForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={specialPlayForm.control} name="numberOfDigits" render={({ field }) => (<FormItem><FormLabel>Cifras</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={specialPlayForm.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Costo</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                </div>
-                 <div className="flex justify-end gap-2">
-                  {editingSpecialPlay && <Button type="button" variant="outline" onClick={cancelEditingSpecialPlay}>Cancelar</Button>}
-                  <Button type="submit">{editingSpecialPlay ? 'Actualizar Jugada' : 'Guardar Jugada'}</Button>
-                </div>
-              </form>
-            </Form>
+            {isClient && (
+              <Form {...specialPlayForm}>
+                <form onSubmit={specialPlayForm.handleSubmit(handleSpecialPlaySubmit)} className="space-y-4">
+                  <FormField
+                      control={specialPlayForm.control}
+                      name="icon"
+                      render={({ field }) => (
+                          <FormItem className="flex items-center gap-4">
+                          <img src={field.value || '/placeholder.svg'} alt="Icono Jugada" className="w-16 h-16 rounded-full object-cover bg-muted"/>
+                          <div className="flex-1">
+                              <FormLabel>Icono de la Jugada</FormLabel>
+                              <div className="flex items-center gap-2">
+                                  <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'specialPlay')} className="hidden" id="icon-upload-special"/>
+                                  <label htmlFor="icon-upload-special" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
+                                      <Upload className="mr-2 h-4 w-4" /> Subir Icono
+                                  </label>
+                              </div>
+                              <FormMessage />
+                          </div>
+                          </FormItem>
+                      )}
+                  />
+                  <FormField control={specialPlayForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={specialPlayForm.control} name="numberOfDigits" render={({ field }) => (<FormItem><FormLabel>Cifras</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={specialPlayForm.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Costo</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    {editingSpecialPlay && <Button type="button" variant="outline" onClick={cancelEditingSpecialPlay}>Cancelar</Button>}
+                    <Button type="submit">{editingSpecialPlay ? 'Actualizar Jugada' : 'Guardar Jugada'}</Button>
+                  </div>
+                </form>
+              </Form>
+            )}
           </CardContent>
         </Card>
 
