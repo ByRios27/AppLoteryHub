@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import html2canvas from 'html2canvas';
 import { Button } from '@/components/ui/button';
 import { Share2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface ReceiptProps {
   sale: Sale;
@@ -39,8 +39,7 @@ const QrCodeGenerator: React.FC<{ text: string }> = ({ text }) => {
 
 
 const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
-  const { appCustomization, sellerId, lotteries } = useStateContext();
-  const { toast } = useToast();
+  const { businessSettings, sellerId, lotteries } = useStateContext();
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Crear un objeto de verificación o un simple string para el QR
@@ -67,7 +66,7 @@ const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
             try {
                 // 2. Try to copy to clipboard
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                toast({ title: "Recibo copiado", description: "El recibo ha sido copiado al portapapeles." });
+                toast.success("Recibo copiado al portapapeles.");
             } catch (copyError) {
                 console.error('Error copying to clipboard:', copyError);
                 // 3. Fallback to download
@@ -79,10 +78,10 @@ const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(link.href);
-                    toast({ title: "Recibo descargado", description: "El recibo se ha guardado como una imagen." });
+                    toast.info("Recibo descargado como imagen.");
                 } catch (downloadError) {
                     console.error('Error downloading:', downloadError);
-                    toast({ title: "Error", description: "No se pudo compartir, copiar ni descargar el recibo.", variant: "destructive" });
+                    toast.error("No se pudo compartir, copiar ni descargar el recibo.");
                 }
             }
           }
@@ -96,8 +95,8 @@ const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
         <div ref={receiptRef} id="receipt" className="bg-white text-black p-4 font-mono text-sm w-80 mx-auto border-2 border-dashed border-gray-400">
         <header className="text-center mb-4">
             <div className="flex items-center justify-center gap-2">
-                {appCustomization.appLogo && <img src={appCustomization.appLogo} alt="App Logo" className="h-10 w-10 object-contain" />}
-                <h1 className="text-xl font-bold font-headline">{appCustomization.appName}</h1>
+                {businessSettings.logo && <img src={businessSettings.logo} alt="App Logo" className="h-10 w-10 object-contain" />}
+                <h1 className="text-xl font-bold font-headline">{businessSettings.name}</h1>
             </div>
             <p>Comprobante de Venta</p>
         </header>
