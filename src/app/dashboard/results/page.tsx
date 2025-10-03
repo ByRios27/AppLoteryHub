@@ -10,13 +10,20 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { type Winner, type Sale } from '@/lib/data';
 import { SaleReceiptModal } from '@/components/SaleReceiptModal';
-import { Eye } from 'lucide-react';
+import { Eye, Calendar as CalendarIcon } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
+import { format, subDays } from 'date-fns';
+import { cn } from '@/lib/utils';
+
 
 const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
@@ -59,12 +66,28 @@ interface WinnerDetails extends Winner {
   sale: Sale | null;
 }
 
+interface HistoricResult {
+    id: string;
+    lotteryName: string;
+    drawTime: string;
+    date: string;
+    prizes: string[];
+}
+
 export default function ResultsPage() {
   const { winners, addWinner, sales, lotteries, winningResults, addWinningResult, updateWinnerPaymentStatus } = useStateContext();
   const [filteredWinners, setFilteredWinners] = useState<WinnerDetails[]>([]);
   const [filterLottery, setFilterLottery] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [selectedLottery, setSelectedLottery] = useState<any | null>(null);
+
+  // State for historic draw filters
+  const [filterDate, setFilterDate] = useState<Date | undefined>();
+  const [filterLotteryId, setFilterLotteryId] = useState<string>('');
+  const [filterDrawTime, setFilterDrawTime] = useState<string>('');
+  const [historicResult, setHistoricResult] = useState<HistoricResult | null>(null);
+  const [historicFilterLottery, setHistoricFilterLottery] = useState<any | null>(null);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -84,6 +107,12 @@ export default function ResultsPage() {
     setSelectedLottery(lottery || null);
     form.reset({ lotteryId: lotteryId, drawTime: '', firstPrizeNumber: '', secondPrizeNumber: '', thirdPrizeNumber: '' });
   }, [lotteryId, form, lotteries]);
+
+  useEffect(() => {
+      const lottery = lotteries.find(l => l.id === filterLotteryId);
+      setHistoricFilterLottery(lottery || null);
+      setFilterDrawTime('');
+  }, [filterLotteryId, lotteries]);
 
   const winnerDetails = useMemo(() => {
     return winners.map(winner => {
@@ -136,16 +165,28 @@ export default function ResultsPage() {
     form.reset();
   };
 
-  const pastDraws = useMemo(() => {
-      return Object.entries(winningResults).flatMap(([date, dailyResults]) => 
-          Object.entries(dailyResults).flatMap(([lotteryId, lotteryResults]) => 
-              Object.entries(lotteryResults).map(([drawTime, prizes]) => {
-                  const lottery = lotteries.find(l => l.id === lotteryId);
-                  return { id: `${date}-${lotteryId}-${drawTime}`, date, lotteryName: lottery?.name || 'N/A', drawTime, prizes };
-              })
-          )
-      ).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [winningResults, lotteries]);
+  const handleSearchHistoricDraw = () => {
+    if (filterDate && filterLotteryId && filterDrawTime) {
+        const dateStr = format(filterDate, 'yyyy-MM-dd');
+        const result = winningResults[dateStr]?.[filterLotteryId]?.[filterDrawTime];
+
+        if (result) {
+            const lottery = lotteries.find(l => l.id === filterLotteryId);
+            setHistoricResult({
+                id: `${dateStr}-${filterLotteryId}-${filterDrawTime}`,
+                date: dateStr,
+                lotteryName: lottery?.name || 'N/A',
+                drawTime: filterDrawTime,
+                prizes: result,
+            });
+        } else {
+            setHistoricResult(null);
+            toast.info("No se encontraron resultados para esta selección.");
+        }
+    } else {
+        toast.warning("Por favor, seleccione fecha, lotería y horario para buscar.");
+    }
+  };
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -184,15 +225,65 @@ export default function ResultsPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Historial de Sorteos</CardTitle>
-            <CardDescription>Resultados de los últimos 7 días.</CardDescription>
-          </CardHeader>
-          <CardContent className="max-h-96 overflow-y-auto">
-             <Table><TableHeader><TableRow><TableHead>Lotería</TableHead><TableHead>Fecha/Hora</TableHead><TableHead>Premios</TableHead></TableRow></TableHeader>
-                <TableBody>{isClient && pastDraws.length > 0 ? (pastDraws.map(draw => (<TableRow key={draw.id}><TableCell>{draw.lotteryName}</TableCell><TableCell>{draw.date}<br/>{draw.drawTime}</TableCell><TableCell className="font-mono text-xs">{draw.prizes.map((p, i) => `[${i+1}] ${p}`).join(' ')}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={3} className="text-center h-24">No hay resultados históricos.</TableCell></TableRow>)}</TableBody>
-             </Table>
-          </CardContent>
+            <CardHeader>
+                <CardTitle className="font-headline">Historial de Sorteos</CardTitle>
+                <CardDescription>Filtra por fecha, lotería y horario para ver un resultado (últimos 3 días).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <Label>Fecha</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn("w-full justify-start text-left font-normal", !filterDate && "text-muted-foreground")}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filterDate ? format(filterDate, "PPP") : <span>Selecciona una fecha</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                mode="single"
+                                selected={filterDate}
+                                onSelect={setFilterDate}
+                                disabled={(date) => date > new Date() || date < subDays(new Date(), 3)}
+                                initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Lotería</Label>
+                        <Select onValueChange={setFilterLotteryId} value={filterLotteryId}><SelectTrigger><SelectValue placeholder="Selecciona una Lotería" /></SelectTrigger><SelectContent>{lotteries.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}</SelectContent></Select>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Horario</Label>
+                        <Select onValueChange={setFilterDrawTime} value={filterDrawTime} disabled={!historicFilterLottery}><SelectTrigger><SelectValue placeholder="Selecciona un horario" /></SelectTrigger><SelectContent>{historicFilterLottery?.drawTimes.map((time: string) => <SelectItem key={time} value={time}>{time}</SelectItem>)}</SelectContent></Select>
+                    </div>
+                </div>
+                <Button onClick={handleSearchHistoricDraw} className="w-full sm:w-auto">Buscar</Button>
+
+                <div className="mt-4 pt-4 border-t">
+                    {historicResult ? (
+                        <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+                            <AccordionItem value="item-1">
+                                <AccordionTrigger>Resultado para {historicResult.lotteryName} - {historicResult.drawTime} ({format(new Date(historicResult.date), 'dd/MM/yyyy')})</AccordionTrigger>
+                                <AccordionContent className="font-mono text-sm space-y-1">
+                                    <p>1er Premio: <span className="font-bold">{historicResult.prizes[0]}</span></p>
+                                    <p>2do Premio: <span className="font-bold">{historicResult.prizes[1]}</span></p>
+                                    <p>3er Premio: <span className="font-bold">{historicResult.prizes[2]}</span></p>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    ) : (
+                        <div className="text-center text-muted-foreground py-8">
+                            <p>Seleccione los filtros y presione "Buscar" para ver un resultado.</p>
+                        </div>
+                    )}
+                </div>
+            </CardContent>
         </Card>
       </div>
 
