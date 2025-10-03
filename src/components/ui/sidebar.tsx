@@ -2,21 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Settings, Package, ShoppingCart, BarChart2, CheckSquare } from 'lucide-react';
+import { Home, Settings, Package, ShoppingCart, BarChart2, CheckSquare, LogOut } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const navLinks = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
   {
-    label: 'Loterías',
+    label: 'Sorteos',
     icon: Package,
     subLinks: [
-      { href: '/dashboard/lotteries', label: 'Disponibles' },
+      { href: '/dashboard/sorteos', label: 'Disponibles' },
       { href: '/dashboard/results', label: 'Resultados' },
     ],
   },
-  { href: '/dashboard/settings', icon: Settings, label: 'Configuración' },
+  { href: '/dashboard/verificacion', icon: CheckSquare, label: 'Verificación' },
+  { href: '/dashboard/estadisticas', icon: BarChart2, label: 'Estadísticas' },
+  { href: '/dashboard/settings', icon: Settings, label: 'Ajustes de Negocio' },
+  { href: '/dashboard/ajustes', icon: Settings, label: 'Ajustes' },
 ];
 
 export function Sidebar() {
@@ -39,7 +42,7 @@ export function Sidebar() {
                 <AccordionItem value="item-1" className="border-none">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <AccordionTrigger className={`flex h-9 w-9 items-center justify-center rounded-lg ${isPartiallyActive('/dashboard/lotteries') || isPartiallyActive('/dashboard/results') ? 'text-accent-foreground bg-accent' : 'text-muted-foreground'} transition-colors hover:text-foreground md:h-8 md:w-8`}>
+                      <AccordionTrigger className={`flex h-9 w-9 items-center justify-center rounded-lg ${isPartiallyActive('/dashboard/sorteos') || isPartiallyActive('/dashboard/results') ? 'text-accent-foreground bg-accent' : 'text-muted-foreground'} transition-colors hover:text-foreground md:h-8 md:w-8`}>
                         <link.icon className="h-5 w-5" />
                         <span className="sr-only">{link.label}</span>
                       </AccordionTrigger>
@@ -67,6 +70,22 @@ export function Sidebar() {
               </Tooltip>
             )
           )}
+        </TooltipProvider>
+      </nav>
+      <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                <Link
+                    href="/"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
+                >
+                    <LogOut className="h-5 w-5" />
+                    <span className="sr-only">Cerrar Sesión</span>
+                </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right">Cerrar Sesión</TooltipContent>
+            </Tooltip>
         </TooltipProvider>
       </nav>
     </aside>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,11 +14,6 @@ import { useStateContext } from '@/context/StateContext';
 import { type Lottery, type SpecialPlay } from '@/lib/data';
 import { TimePicker } from '@/components/ui/time-picker';
 import DashboardHeader from '@/components/ui/DashboardHeader';
-
-const businessSchema = z.object({
-  businessName: z.string().min(1, 'El nombre del negocio es requerido.'),
-  businessLogo: z.string().optional(),
-});
 
 const lotterySchema = z.object({
   id: z.string().optional(),
@@ -38,15 +33,10 @@ const specialPlaySchema = z.object({
 });
 
 export default function SettingsPage() {
-  const { lotteries, setLotteries, specialPlays, setSpecialPlays, businessSettings, setBusinessSettings } = useStateContext();
+  const { lotteries, setLotteries, specialPlays, setSpecialPlays } = useStateContext();
   const { toast } = useToast();
   const [editingLottery, setEditingLottery] = useState<Lottery | null>(null);
   const [editingSpecialPlay, setEditingSpecialPlay] = useState<SpecialPlay | null>(null);
-
-  const businessForm = useForm<z.infer<typeof businessSchema>>({
-    resolver: zodResolver(businessSchema),
-    defaultValues: { businessName: '', businessLogo: '' },
-  });
 
   const lotteryForm = useForm<z.infer<typeof lotterySchema>>({
     resolver: zodResolver(lotterySchema),
@@ -58,32 +48,20 @@ export default function SettingsPage() {
     defaultValues: { name: '', icon: '', numberOfDigits: 2, cost: 1.0 },
   });
 
-  useEffect(() => {
-    if (businessSettings) {
-      businessForm.reset({
-        businessName: businessSettings.name || '',
-        businessLogo: businessSettings.logo || '',
-      });
-    }
-  }, [businessSettings, businessForm]);
-
   const { fields: drawTimesFields, append: appendDrawTime, remove: removeDrawTime } = useFieldArray({
     control: lotteryForm.control,
     name: 'drawTimes',
   });
 
-  const handleBusinessSubmit = (values: z.infer<typeof businessSchema>) => {
-    setBusinessSettings({ name: values.businessName, logo: values.businessLogo });
-    toast({ title: 'Ajustes de Negocio Actualizados', description: 'El nombre y logo de tu negocio han sido actualizados.' });
-  };
-
   const handleLotterySubmit = (values: z.infer<typeof lotterySchema>) => {
     const lotteryData = { ...values, icon: values.icon || 'ticket' };
     if (editingLottery) {
+      // Update existing lottery
       setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...lotteryData, id: l.id } : l));
       toast({ title: 'Lotería Actualizada', description: `La lotería ${values.name} ha sido actualizada.` });
       setEditingLottery(null);
     } else {
+      // Add new lottery
       const newLottery: Lottery = { ...lotteryData, id: `L${Date.now()}` };
       setLotteries([...lotteries, newLottery]);
       toast({ title: 'Lotería Añadida', description: `La lotería ${values.name} ha sido creada.` });
@@ -135,25 +113,17 @@ export default function SettingsPage() {
     toast({ title: 'Jugada Especial Eliminada', variant: 'destructive' });
   };
   
-  const handleIconUpload = (event: React.ChangeEvent<HTMLInputElement>, form: any) => {
+  const handleIconUpload = (event: React.ChangeEvent<HTMLInputElement>, formType: 'lottery' | 'specialPlay') => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
-        form.setValue('icon', base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleBusinessLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        businessForm.setValue('businessLogo', base64String);
+        if (formType === 'lottery') {
+            lotteryForm.setValue('icon', base64String);
+        } else {
+            specialPlayForm.setValue('icon', base64String);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -161,45 +131,8 @@ export default function SettingsPage() {
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-      <DashboardHeader title="Ajustes" />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Ajustes del Negocio</CardTitle>
-          <CardDescription>Configura el nombre y logo de tu negocio.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...businessForm}>
-            <form onSubmit={businessForm.handleSubmit(handleBusinessSubmit)} className="space-y-4">
-                <FormField
-                  control={businessForm.control}
-                  name="businessLogo"
-                  render={({ field }) => (
-                      <FormItem className="flex items-center gap-4">
-                      <img src={field.value || '/placeholder.svg'} alt="Logo del Negocio" className="w-16 h-16 rounded-full object-cover bg-muted"/>
-                      <div className="flex-1">
-                          <FormLabel>Logo del Negocio</FormLabel>
-                          <div className="flex items-center gap-2">
-                              <Input type="file" accept="image/*" onChange={handleBusinessLogoUpload} className="hidden" id="business-logo-upload"/>
-                              <label htmlFor="business-logo-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
-                                  <Upload className="mr-2 h-4 w-4" /> Subir Logo
-                              </label>
-                          </div>
-                          <FormMessage />
-                      </div>
-                      </FormItem>
-                  )}
-                />
-              <FormField control={businessForm.control} name="businessName" render={({ field }) => (<FormItem><FormLabel>Nombre del Negocio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <div className="flex justify-end gap-2">
-                  <Button type="submit">Guardar Ajustes del Negocio</Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 mt-8">
+      <DashboardHeader title="Ajustes de Negocio" />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{editingLottery ? 'Editando Lotería' : 'Añadir Nueva Lotería'}</CardTitle>
@@ -217,7 +150,7 @@ export default function SettingsPage() {
                         <div className="flex-1">
                             <FormLabel>Icono de la Lotería</FormLabel>
                             <div className="flex items-center gap-2">
-                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, lotteryForm)} className="hidden" id="icon-upload"/>
+                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'lottery')} className="hidden" id="icon-upload"/>
                                 <label htmlFor="icon-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
                                     <Upload className="mr-2 h-4 w-4" /> Subir Icono
                                 </label>
@@ -311,7 +244,7 @@ export default function SettingsPage() {
                         <div className="flex-1">
                             <FormLabel>Icono de la Jugada</FormLabel>
                              <div className="flex items-center gap-2">
-                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, specialPlayForm)} className="hidden" id="icon-upload-special"/>
+                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, 'specialPlay')} className="hidden" id="icon-upload-special"/>
                                 <label htmlFor="icon-upload-special" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
                                     <Upload className="mr-2 h-4 w-4" /> Subir Icono
                                 </label>

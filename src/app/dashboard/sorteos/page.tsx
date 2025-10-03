@@ -1,13 +1,11 @@
 'use client';
 import React, { useMemo } from 'react';
 import { useStateContext } from '@/context/StateContext';
-import HeaderWrapper from "@/components/ui/HeaderWrapper";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import DashboardHeader from "@/components/ui/DashboardHeader";
 import Link from 'next/link';
 import { iconMap } from '@/lib/icon-map';
 
-const LotteriesPage: React.FC = () => {
+const SorteosPage: React.FC = () => {
     const { lotteries, specialPlays } = useStateContext();
 
     const combinedItems = useMemo(() => {
@@ -39,7 +37,8 @@ const LotteriesPage: React.FC = () => {
     }, [lotteries, specialPlays]);
 
     return (
-        <HeaderWrapper title="Sorteos">
+        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+            <DashboardHeader title="Sorteos" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {combinedItems.map((item) => {
                     const Icon = iconMap[item.icon] || iconMap.ticket;
@@ -55,15 +54,9 @@ const LotteriesPage: React.FC = () => {
                         </Link>
                     )
                 })}
-                <Link href="/dashboard/lotteries/new" passHref>
-                    <Button variant="outline" className="w-full h-full flex flex-col items-center justify-center p-6 rounded-lg border-2 border-dashed hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                        <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                        <span className="text-center">Agregar Nuevo Sorteo o Jugada Especial</span>
-                    </Button>
-                </Link>
             </div>
-        </HeaderWrapper>
+        </main>
     );
 };
 
-export default LotteriesPage;
+export default SorteosPage;

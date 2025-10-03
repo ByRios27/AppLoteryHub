@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { type Winner, type Sale } from '@/lib/data';
 import { SaleReceiptModal } from '@/components/SaleReceiptModal';
 import { Eye } from 'lucide-react';
+import DashboardHeader from '@/components/ui/DashboardHeader';
 
 const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
@@ -147,7 +148,8 @@ export default function ResultsPage() {
   }, [winningResults, lotteries]);
 
   return (
-    <main className="grid gap-4 p-4 md:gap-8 md:p-8">
+    <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+      <DashboardHeader title="Resultados" />
       <div className="grid md:grid-cols-2 gap-8">
         <Card>
           <CardHeader>

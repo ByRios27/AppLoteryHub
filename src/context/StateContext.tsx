@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
 import { lotteries as initialLotteries, specialPlays as initialSpecialPlays } from '@/lib/initial-data';
-import { differenceInHours, subDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 // Custom type for winning results to avoid deeply nested objects
@@ -45,23 +45,6 @@ interface StateContextType {
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
-// A more robust function to get and parse data from localStorage
-function getStoredData<T>(key: string, defaultValue: T): T {
-  if (typeof window === 'undefined') return defaultValue;
-
-  try {
-    const savedData = localStorage.getItem(key);
-    if (!savedData) return defaultValue;
-
-    const parsed = JSON.parse(savedData);
-    return parsed ?? defaultValue;
-  } catch (error) {
-    console.error(`Error processing ${key} from localStorage`, error);
-    localStorage.removeItem(key); // Remove corrupted data
-    return defaultValue;
-  }
-}
-
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [winningResults, setWinningResults] = useState<WinningResults>({});
@@ -70,58 +53,11 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>(() => getUniqueItems(initialSpecialPlays));
   const [appCustomization, setAppCustomization] = useState<AppCustomization>({ appName: 'Lotto Hub', appLogo: null });
   const [sellerId] = useState<string>('ventas01');
-  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Effect for loading all data from localStorage on initial mount
+  // This will clear all data on every refresh
   useEffect(() => {
-    const now = new Date();
-
-    // Load and filter sales, winners, and results
-    setSales(getStoredData('lotterySales', []).filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12));
-    setWinners(getStoredData('lotteryWinners', []).filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24));
-    
-    const resultsData = getStoredData('winningResults', {});
-    const sevenDaysAgo = subDays(now, 7);
-    const validResults = Object.entries(resultsData).reduce<WinningResults>((acc, [dateStr, dailyResults]) => {
-      if (new Date(dateStr) >= sevenDaysAgo) {
-        acc[dateStr] = dailyResults;
-      }
-      return acc;
-    }, {});
-    setWinningResults(validResults);
-
-    // Load and deduplicate lotteries and special plays
-    setLotteries(getUniqueItems(getStoredData('appLotteries', initialLotteries)));
-    setSpecialPlays(getUniqueItems(getStoredData('appSpecialPlays', initialSpecialPlays)));
-    setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
-
-    setIsInitialized(true);
+    localStorage.clear();
   }, []);
-
-  // Effect for saving all data to localStorage whenever it changes
-  useEffect(() => {
-    if (isInitialized) {
-      try {
-        localStorage.setItem('lotterySales', JSON.stringify(sales));
-        localStorage.setItem('winningResults', JSON.stringify(winningResults));
-        localStorage.setItem('lotteryWinners', JSON.stringify(winners));
-        
-        // Deduplicate before saving
-        localStorage.setItem('appLotteries', JSON.stringify(getUniqueItems(lotteries)));
-        localStorage.setItem('appSpecialPlays', JSON.stringify(getUniqueItems(specialPlays)));
-        localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
-
-      } catch (e) {
-        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-          console.error("LocalStorage quota exceeded!", e);
-          toast.error('Error: El almacenamiento está lleno. No se pueden guardar nuevos datos.');
-        } else {
-          console.error("Failed to save to localStorage", e);
-          toast.error('Ocurrió un error inesperado al guardar los datos.');
-        }
-      }
-    }
-  }, [sales, winningResults, winners, lotteries, specialPlays, appCustomization, isInitialized]);
 
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -160,7 +96,7 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <StateContext.Provider value={contextValue}>
-      {isInitialized ? children : null}
+      {children}
     </StateContext.Provider>
   );
 };

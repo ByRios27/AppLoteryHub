@@ -1,0 +1,43 @@
+<svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="doodle" patternUnits="userSpaceOnUse" width="150" height="150">
+      <style>
+        .stroked {
+          stroke: #d1c7b7;
+          stroke-width: 1;
+          fill: none;
+        }
+        .filled {
+          fill: #d1c7b7;
+          font-family: sans-serif;
+          font-size: 10px;
+        }
+      </style>
+      <!-- Ticket -->
+      <g transform="translate(20, 20) rotate(15)">
+        <path d="M0 0 h40 v20 h-40z" class="stroked"/>
+        <path d="M20 0 v20" stroke-dasharray="2,2" class="stroked"/>
+      </g>
+
+      <!-- Ball -->
+      <g transform="translate(80, 40)">
+        <circle cx="0" cy="0" r="10" class="stroked"/>
+        <text x="-4" y="4" class="filled">7</text>
+      </g>
+
+      <!-- Ticket -->
+      <g transform="translate(60, 90) rotate(-10)">
+        <path d="M0 0 h40 v20 h-40z" class="stroked"/>
+        <path d="M20 0 v20" stroke-dasharray="2,2" class="stroked"/>
+      </g>
+
+      <!-- Ball -->
+      <g transform="translate(30, 120)">
+        <circle cx="0" cy="0" r="10" class="stroked"/>
+        <text x="-4" y="4" class="filled">3</text>
+      </g>
+
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#doodle)" />
+</svg>
