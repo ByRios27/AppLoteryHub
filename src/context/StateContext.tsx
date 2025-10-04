@@ -5,43 +5,13 @@ import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
 import { lotteries as initialLotteries, specialPlays as initialSpecialPlays } from '@/lib/initial-data';
 import { differenceInHours, subDays, format } from 'date-fns';
 import { toast } from 'sonner';
-
-// Custom type for winning results to avoid deeply nested objects
-type WinningResults = {
-  [date: string]: {
-    [lotteryId: string]: {
-      [drawTime: string]: string[];
-    };
-  };
-};
-
-interface AppCustomization {
-    appName: string;
-    appLogo: string | null;
-}
+import { StateContextType, WinningResults, AppCustomization, BusinessSettings } from '@/lib/types';
 
 // A generic helper to remove duplicate items from an array based on their 'id' property.
 const getUniqueItems = <T extends { id: string }>(items: T[]): T[] => {
     if (!Array.isArray(items)) return [];
     return Array.from(new Map(items.map(item => [item.id, item])).values());
 };
-
-interface StateContextType {
-  sales: Sale[];
-  setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
-  winningResults: WinningResults;
-  addWinningResult: (lotteryId: string, drawTime: string, prizes: string[]) => void;
-  winners: Winner[];
-  addWinner: (ticketId: string, lotteryId: string, drawTime: string, ticketNumber: string, prizeTier: number) => void;
-  updateWinnerPaymentStatus: (winnerId: string, paid: boolean) => void;
-  lotteries: Lottery[];
-  setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
-  specialPlays: SpecialPlay[];
-  setSpecialPlays: React.Dispatch<React.SetStateAction<SpecialPlay[]>>;
-  appCustomization: AppCustomization;
-  setAppCustomization: React.Dispatch<React.SetStateAction<AppCustomization>>;
-  sellerId: string;
-}
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
@@ -53,7 +23,7 @@ function getStoredData<T>(key: string, defaultValue: T): T {
     const savedData = localStorage.getItem(key);
     if (!savedData) return defaultValue;
 
-    const parsed = JSON.parse(savedData);
+    const parsed = JSON.parse(savedData) as T;
     return parsed ?? defaultValue;
   } catch (error) {
     console.error(`Error processing ${key} from localStorage`, error);
@@ -77,23 +47,23 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     const now = new Date();
 
     // Load and filter sales, winners, and results
-    setSales(getStoredData('lotterySales', []).filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12));
-    setWinners(getStoredData('lotteryWinners', []).filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24));
+    setSales(getStoredData<Sale[]>('lotterySales', []).filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12));
+    setWinners(getStoredData<Winner[]>('lotteryWinners', []).filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24));
     
-    const resultsData = getStoredData('winningResults', {});
+    const resultsData = getStoredData<WinningResults>('winningResults', {});
     const sevenDaysAgo = subDays(now, 7);
     const validResults = Object.entries(resultsData).reduce<WinningResults>((acc, [dateStr, dailyResults]) => {
       if (new Date(dateStr) >= sevenDaysAgo) {
-        acc[dateStr] = dailyResults;
+        acc[dateStr] = dailyResults as any;
       }
       return acc;
     }, {});
     setWinningResults(validResults);
 
     // Load and deduplicate lotteries and special plays
-    setLotteries(getUniqueItems(getStoredData('appLotteries', initialLotteries)));
-    setSpecialPlays(getUniqueItems(getStoredData('appSpecialPlays', initialSpecialPlays)));
-    setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
+    setLotteries(getUniqueItems(getStoredData<Lottery[]>('appLotteries', initialLotteries)));
+    setSpecialPlays(getUniqueItems(getStoredData<SpecialPlay[]>('appSpecialPlays', initialSpecialPlays)));
+    setAppCustomization(getStoredData<AppCustomization>('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
 
     setIsInitialized(true);
   }, []);
@@ -134,6 +104,36 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
       });
   };
 
+  const updateWinningResult = (date: string, lotteryId: string, drawTime: string, newPrizes: string[]) => {
+    setWinningResults(prev => {
+        const newResults = { ...prev };
+        if (newResults[date] && newResults[date][lotteryId]) {
+            newResults[date][lotteryId][drawTime] = newPrizes;
+        }
+        return newResults;
+    });
+    toast.success('Resultado actualizado exitosamente.');
+  };
+
+  const deleteWinningResult = (date: string, lotteryId: string, drawTime: string) => {
+      setWinningResults(prev => {
+          const newResults = { ...prev };
+          if (newResults[date] && newResults[date][lotteryId]) {
+              delete newResults[date][lotteryId][drawTime];
+              if (Object.keys(newResults[date][lotteryId]).length === 0) {
+                  delete newResults[date][lotteryId];
+              }
+              if (Object.keys(newResults[date]).length === 0) {
+                  delete newResults[date];
+              }
+          }
+          return newResults;
+      });
+      // Also remove associated winners
+      setWinners(prev => prev.filter(w => !(w.lotteryId === lotteryId && w.drawTime === drawTime && w.drawDate.startsWith(date))));
+      toast.info('Resultado y ganadores asociados eliminados.');
+  };
+
   const addWinner = (ticketId: string, lotteryId: string, drawTime: string, ticketNumber: string, prizeTier: number) => {
     const newWinner: Winner = {
       id: ticketId, lotteryId, drawTime, ticketNumber, prizeTier,
@@ -148,13 +148,28 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
     toast.success(`Estado de pago actualizado para el ganador ${winnerId}.`);
   };
 
-  const contextValue = {
-    sales, setSales, 
-    winningResults, addWinningResult,
-    winners, addWinner, updateWinnerPaymentStatus, 
+  const confirmAndPayWinner = (winnerId: string) => {
+      setWinners(prev => prev.map(winner => winner.id === winnerId ? { ...winner, paid: true } : winner));
+      toast.success("Premio pagado y archivado.");
+  };
+
+  const updateSale = (saleId: string, updatedSale: Partial<Sale>) => {
+    setSales(prev => prev.map(sale => sale.id === saleId ? { ...sale, ...updatedSale } : sale));
+  };
+
+  const businessSettings: BusinessSettings = {
+    lotteries,
+    specialPlays
+  };
+
+  const contextValue: StateContextType = {
+    sales, setSales, updateSale,
+    winningResults, addWinningResult, updateWinningResult, deleteWinningResult,
+    winners, addWinner, updateWinnerPaymentStatus, confirmAndPayWinner,
     lotteries, setLotteries, 
     specialPlays, setSpecialPlays,
     appCustomization, setAppCustomization, 
+    businessSettings,
     sellerId
   };
 

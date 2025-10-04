@@ -2,8 +2,8 @@
 
 import { useMemo, useEffect, useState } from "react";
 import { useParams, notFound, useSearchParams } from "next/navigation";
-import { type Sale, type Lottery, type SpecialPlay } from "@/lib/data";
-import { useForm, useFieldArray } from "react-hook-form";
+import { type Sale, type Lottery, type SpecialPlay, Ticket } from "@/lib/data";
+import { useForm, useFieldArray, FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ArrowLeft, PlusCircle, Trash2, MoreHorizontal, Eye, Edit, Share2, X } from "lucide-react";
@@ -37,6 +37,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { SaleReceiptModal } from "@/components/SaleReceiptModal";
 import { toast } from "sonner";
+
+// Explicit type definitions for form fields
+interface StandardSaleFormFields {
+    customerName?: string;
+    customerPhone?: string;
+    tickets: { ticketNumber: string; fractions: number }[];
+}
+
+interface MultiPickSaleFormFields {
+    customerName?: string;
+    customerPhone?: string;
+    picks: string[];
+}
 
 const ticketEntrySchema = (digits: number) => z.object({
     ticketNumber: z.string().length(digits, { message: `Debe tener ${digits} dígitos` }).regex(new RegExp(`^\\d{${digits}}$`), `Debe ser un número de ${digits} dígitos`),
@@ -74,7 +87,7 @@ export default function LotterySalePage() {
     const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
     const [editingSale, setEditingSale] = useState<Sale | null>(null);
     const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-    const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<{sale: Sale, item: Lottery | SpecialPlay} | null>(null);
+    const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
 
     const playType = useMemo(() => {
         if (!isSpecial) return 'standard';
@@ -87,12 +100,12 @@ export default function LotterySalePage() {
         return 0;
     }, [item, playType]);
 
-    const standardSaleForm = useForm<z.infer<typeof saleFormSchema>>({
+    const standardSaleForm = useForm<StandardSaleFormFields>({
         resolver: zodResolver(saleFormSchema(formDigits)),
         defaultValues: { customerName: "", customerPhone: "", tickets: [{ ticketNumber: "", fractions: 1 }] },
     });
 
-    const multiPickForm = useForm<z.infer<typeof multiPickSaleSchema>>({
+    const multiPickForm = useForm<MultiPickSaleFormFields>({
         resolver: zodResolver(multiPickSaleSchema((item as SpecialPlay)?.numberOfPicks || 2)),
         defaultValues: { customerName: "", customerPhone: "", picks: Array((item as SpecialPlay)?.numberOfPicks || 0).fill('') },
     });
@@ -106,7 +119,7 @@ export default function LotterySalePage() {
 
     useEffect(() => {
         resetFormsAndState();
-    }, [id, isSpecial, item]); // Simplified dependency array
+    }, [id, isSpecial, item]);
 
     if (!item) {
         notFound();
@@ -119,7 +132,7 @@ export default function LotterySalePage() {
         return lotteries.filter(l => applicableLotteryIds.includes(l.id));
     }, [lotteries, item, isSpecial]);
 
-    const handleSaleSubmit = (values: any) => {
+    const handleSaleSubmit = (values: StandardSaleFormFields | MultiPickSaleFormFields) => {
         if (selectedDraws.length === 0) {
             toast.error("Debes seleccionar al menos un sorteo.");
             return;
@@ -127,27 +140,36 @@ export default function LotterySalePage() {
 
         const isMultiPick = playType === 'multi_pick';
         
-        const saleData = {
+        let newTickets: Ticket[];
+        let totalCost: number;
+
+        if (isMultiPick && 'picks' in values) {
+            newTickets = [{
+                id: `T${Date.now()}`,
+                ticketNumber: values.picks.join(' - '),
+                fractions: 1,
+                cost: item.cost * selectedDraws.length,
+            }];
+            totalCost = item.cost * selectedDraws.length;
+        } else if ('tickets' in values) {
+            newTickets = values.tickets.map((ticket) => ({
+                id: `T${Date.now()}-${ticket.ticketNumber}`,
+                ticketNumber: ticket.ticketNumber,
+                fractions: ticket.fractions,
+                cost: ticket.fractions * item.cost,
+            }));
+            totalCost = values.tickets.reduce((acc, t) => acc + (t.fractions * item.cost), 0) * selectedDraws.length;
+        }
+
+        const saleData: Omit<Sale, 'id'> = {
             draws: selectedDraws,
             customerName: values.customerName,
             customerPhone: values.customerPhone,
-            tickets: isMultiPick
-                ? [{
-                    id: `T${Date.now()}`,
-                    ticketNumber: values.picks.join(' - '),
-                    fractions: 1,
-                    cost: item.cost * selectedDraws.length,
-                }]
-                : values.tickets.map((ticket: any) => ({
-                    id: `T${Date.now()}-${ticket.ticketNumber}`,
-                    ticketNumber: ticket.ticketNumber,
-                    fractions: ticket.fractions,
-                    cost: ticket.fractions * item.cost,
-                })),
-            totalCost: isMultiPick 
-                ? item.cost * selectedDraws.length
-                : values.tickets.reduce((acc: number, t: any) => acc + (t.fractions * item.cost), 0) * selectedDraws.length,
-            soldAt: editingSale ? editingSale.soldAt : new Date(), // Keep original date on edit
+            tickets: newTickets!,
+            totalCost: totalCost!,
+            soldAt: editingSale ? editingSale.soldAt : new Date().toISOString(),
+            createdAt: editingSale ? editingSale.createdAt : new Date().toISOString(),
+            drawTime: selectedDraws.length > 0 ? selectedDraws[0].drawTime : '',
             specialPlayId: isSpecial ? item.id : undefined,
             lotteryId: !isSpecial ? item.id : undefined
         };
@@ -197,15 +219,14 @@ export default function LotterySalePage() {
     };
 
     const handleViewReceipt = (sale: Sale) => {
-        if (!item) return;
-        setSelectedSaleForReceipt({ sale, item });
+        setSelectedSaleForReceipt(sale);
         setIsReceiptModalOpen(true);
     };
 
     const Icon = typeof item.icon === 'string' && item.icon.startsWith('data:image') ? null : (iconMap[item.icon as keyof typeof iconMap] || iconMap.ticket);
     
     const watchedPicks = multiPickForm.watch('picks');
-    const isMultiPickButtonDisabled = !watchedPicks || watchedPicks.some(p => p.trim() === '') || selectedDraws.length === 0;
+    const isMultiPickButtonDisabled = !watchedPicks || watchedPicks.some(p => !p || p.trim() === '') || selectedDraws.length === 0;
 
     const { fields, append, remove } = useFieldArray({ control: standardSaleForm.control, name: "tickets" });
     const watchedSaleTickets = standardSaleForm.watch("tickets");
@@ -217,7 +238,7 @@ export default function LotterySalePage() {
                  <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Estás seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción no se puede deshacer. Esto eliminará permanentemente la venta.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteSale}>Sí, eliminar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
             </AlertDialog>
 
-            {selectedSaleForReceipt && <SaleReceiptModal open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen} sale={selectedSaleForReceipt.sale} item={selectedSaleForReceipt.item} />}
+            {selectedSaleForReceipt && item && <SaleReceiptModal open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen} sale={selectedSaleForReceipt} item={item} />}
 
             <div className="flex items-center gap-4">
                 <Button asChild variant="outline" size="icon" className="h-8 w-8"><Link href="/dashboard/sorteos"><ArrowLeft className="h-4 w-4" /></Link></Button>
@@ -237,7 +258,7 @@ export default function LotterySalePage() {
                         <CardHeader><CardTitle className="font-headline">{editingSale ? `Editando Venta #${editingSale.id.substring(0,5)}...` : (isSpecial ? `Realizar Jugada` : "Vender Boletos")}</CardTitle></CardHeader>
                         <CardContent>
                             {playType === 'multi_pick' ? (
-                                <Form {...multiPickForm}> <form onSubmit={multiPickForm.handleSubmit(handleSaleSubmit)} className="space-y-6">
+                                <Form {...multiPickForm}> <form onSubmit={multiPickForm.handleSubmit(handleSaleSubmit as any)} className="space-y-6">
                                 <div className="space-y-2"><Label className="text-base font-medium">1. Selecciona Sorteos</Label><div className="rounded-md border p-4 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6">{selectableLotteries.map(lottery => (<div key={lottery.id}><p className="font-semibold mb-2">{lottery.name}</p><div className="space-y-2">{lottery.drawTimes.map(time => (<div key={time} className="flex items-center gap-2"><Checkbox id={`${item.id}-${lottery.id}-${time}`} onCheckedChange={(checked) => setSelectedDraws(prev => checked ? [...prev, {lotteryId: lottery.id, drawTime: time}] : prev.filter(d => d.lotteryId !== lottery.id || d.drawTime !== time))} checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)} /><Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{time}</Label></div>))}</div></div>))}</div></div>
                                 <div className="space-y-2"><Label>2. Ingresa los {(item as SpecialPlay).numberOfPicks} Números</Label><div className={`grid grid-cols-${(item as SpecialPlay).numberOfPicks || 2} gap-4`}>{Array.from({ length: (item as SpecialPlay).numberOfPicks || 0 }).map((_, index) => (<FormField key={index} control={multiPickForm.control} name={`picks.${index}`} render={({ field }) => (<FormItem><FormControl><Input placeholder={`Nº ${index + 1}`} {...field} className="text-center font-mono text-lg" /></FormControl><FormMessage /></FormItem>)} />))}</div></div>
                                 <div className="grid grid-cols-2 gap-4"><FormField control={multiPickForm.control} name="customerName" render={({ field }) => (<FormItem><FormLabel>Nombre Cliente (Opcional)</FormLabel><FormControl><Input placeholder="Nombre" {...field} /></FormControl></FormItem>)} /><FormField control={multiPickForm.control} name="customerPhone" render={({ field }) => (<FormItem><FormLabel>Teléfono (Opcional)</FormLabel><FormControl><Input placeholder="Teléfono" {...field} /></FormControl></FormItem>)} /></div>
@@ -249,7 +270,7 @@ export default function LotterySalePage() {
                                 {isMultiPickButtonDisabled && !editingSale && <p className='text-xs text-center text-red-500 mt-2'>Debes seleccionar al menos un sorteo y rellenar todos los números.</p>}
                             </form></Form>
                             ) : (
-                                <Form {...standardSaleForm}><form onSubmit={standardSaleForm.handleSubmit(handleSaleSubmit)} className="space-y-6">
+                                <Form {...standardSaleForm}><form onSubmit={standardSaleForm.handleSubmit(handleSaleSubmit as any)} className="space-y-6">
                                     <div className="space-y-2">
                                         <Label className="text-base font-medium">1. Selecciona Sorteos</Label>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border p-4">{isSpecial ? selectableLotteries.map(lottery => lottery.drawTimes.map(time => (<div key={`${lottery.id}-${time}`} className="flex items-center gap-2"><Checkbox id={`${item.id}-${lottery.id}-${time}`} onCheckedChange={(checked) => setSelectedDraws(prev => checked ? [...prev, {lotteryId: lottery.id, drawTime: time}] : prev.filter(d => d.lotteryId !== lottery.id || d.drawTime !== time))} checked={selectedDraws.some(d => d.lotteryId === lottery.id && d.drawTime === time)} /><Label htmlFor={`${item.id}-${lottery.id}-${time}`} className="font-normal">{`${lottery.name} - ${time}`}</Label></div>))) : (item as Lottery).drawTimes.map(time => (<div key={time} className="flex items-center gap-2"><Checkbox id={`${item.id}-${time}`} onCheckedChange={(checked) => setSelectedDraws(prev => checked ? [...prev, {lotteryId: item.id, drawTime: time}] : prev.filter(d => d.drawTime !== time))} checked={selectedDraws.some(d => d.lotteryId === item.id && d.drawTime === time)} /><Label htmlFor={`${item.id}-${time}`} className="font-normal">{time}</Label></div>))}{isSpecial && selectableLotteries.length === 0 && <p className="col-span-full text-center text-muted-foreground">No hay loterías de {formDigits} cifras compatibles.</p>}</div>

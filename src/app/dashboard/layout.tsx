@@ -11,7 +11,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { businessSettings } = useStateContext();
+  const { appCustomization } = useStateContext();
   const pathname = usePathname(); 
   const router = useRouter();
   const isDashboardHome = pathname === '/dashboard';
@@ -35,8 +35,8 @@ export default function DashboardLayout({
 
             <div className="flex justify-center">
                 <div className="flex items-center gap-2">
-                    {businessSettings?.logo && <img src={businessSettings.logo} alt={businessSettings.name || 'Logo'} className="h-6 w-6 rounded-full object-cover"/>}
-                    {businessSettings?.name && <span className="font-semibold text-md">{businessSettings.name}</span>}
+                    {appCustomization?.appLogo && <img src={appCustomization.appLogo} alt={appCustomization.appName || 'Logo'} className="h-6 w-6 rounded-full object-cover"/>}
+                    {appCustomization?.appName && <span className="font-semibold text-md">{appCustomization.appName}</span>}
                 </div>
             </div>
 

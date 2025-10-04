@@ -39,7 +39,7 @@ const QrCodeGenerator: React.FC<{ text: string }> = ({ text }) => {
 
 
 const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
-  const { businessSettings, sellerId, lotteries } = useStateContext();
+  const { appCustomization, sellerId, lotteries } = useStateContext();
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Crear un objeto de verificación o un simple string para el QR
@@ -95,8 +95,8 @@ const Receipt: React.FC<ReceiptProps> = ({ sale }) => {
         <div ref={receiptRef} id="receipt" className="bg-white text-black p-4 font-mono text-sm w-80 mx-auto border-2 border-dashed border-gray-400">
         <header className="text-center mb-4">
             <div className="flex items-center justify-center gap-2">
-                {businessSettings.logo && <img src={businessSettings.logo} alt="App Logo" className="h-10 w-10 object-contain" />}
-                <h1 className="text-xl font-bold font-headline">{businessSettings.name}</h1>
+                {appCustomization.appLogo && <img src={appCustomization.appLogo} alt="App Logo" className="h-10 w-10 object-contain" />}
+                <h1 className="text-xl font-bold font-headline">{appCustomization.appName}</h1>
             </div>
             <p>Comprobante de Venta</p>
         </header>

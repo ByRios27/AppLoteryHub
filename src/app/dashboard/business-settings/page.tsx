@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Trash2, Edit, Upload } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useStateContext } from '@/context/StateContext';
 import { type Lottery, type SpecialPlay } from '@/lib/data';
 import { TimePicker } from '@/components/ui/time-picker';
@@ -22,7 +22,7 @@ const lotterySchema = z.object({
   icon: z.string().optional(),
   numberOfDigits: z.coerce.number().min(1, 'Mínimo 1 dígito.').max(10, 'Máximo 10 dígitos.'),
   cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
-  drawTimes: z.array(z.string()).min(1, 'Debe haber al menos un sorteo.').max(4, 'No más de 4 sorteos.'),
+  drawTimes: z.array(z.object({ value: z.string() })).min(1, 'Debe haber al menos un sorteo.').max(4, 'No más de 4 sorteos.'),
 });
 
 const specialPlaySchema = z.object({
@@ -35,7 +35,6 @@ const specialPlaySchema = z.object({
 
 export default function SettingsPage() {
   const { lotteries, setLotteries, specialPlays, setSpecialPlays } = useStateContext();
-  const { toast } = useToast();
   const [editingLottery, setEditingLottery] = useState<Lottery | null>(null);
   const [editingSpecialPlay, setEditingSpecialPlay] = useState<SpecialPlay | null>(null);
   const [paletEnabled, setPaletEnabled] = useState(false);
@@ -63,17 +62,19 @@ export default function SettingsPage() {
   });
 
   const handleLotterySubmit = (values: z.infer<typeof lotterySchema>) => {
-    const lotteryData = { ...values, icon: values.icon || 'ticket' };
+    const lotteryData = {
+        ...values,
+        icon: values.icon || 'ticket',
+        drawTimes: values.drawTimes.map(dt => dt.value)
+    };
     if (editingLottery) {
-      // Update existing lottery
       setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...lotteryData, id: l.id } : l));
-      toast({ title: 'Lotería Actualizada', description: `La lotería ${values.name} ha sido actualizada.` });
+      toast.success(`La lotería ${values.name} ha sido actualizada.`);
       setEditingLottery(null);
     } else {
-      // Add new lottery
       const newLottery: Lottery = { ...lotteryData, id: `L${Date.now()}` };
       setLotteries([...lotteries, newLottery]);
-      toast({ title: 'Lotería Añadida', description: `La lotería ${values.name} ha sido creada.` });
+      toast.success(`La lotería ${values.name} ha sido creada.`);
     }
     lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
@@ -81,20 +82,26 @@ export default function SettingsPage() {
   const handleSpecialPlaySubmit = (values: z.infer<typeof specialPlaySchema>) => {
     const specialPlayData = { ...values, icon: values.icon || 'ticket' };
     if (editingSpecialPlay) {
-      setSpecialPlays(specialPlays.map(sp => sp.id === editingSpecialPlay.id ? { ...sp, ...specialPlayData, id: sp.id } : sp));
-      toast({ title: 'Jugada Especial Actualizada', description: `La jugada ${values.name} ha sido actualizada.` });
+      const updatedPlay = { ...editingSpecialPlay, ...specialPlayData };
+      setSpecialPlays(specialPlays.map(sp => sp.id === editingSpecialPlay.id ? updatedPlay : sp));
+      toast.success(`La jugada ${values.name} ha sido actualizada.`);
       setEditingSpecialPlay(null);
     } else {
-      const newSpecialPlay: SpecialPlay = { ...specialPlayData, id: `SP${Date.now()}` };
+      const newSpecialPlay: SpecialPlay = { 
+          ...specialPlayData, 
+          id: `SP${Date.now()}`,
+          enabled: true,
+          type: 'single_pick'
+      };
       setSpecialPlays([...specialPlays, newSpecialPlay]);
-      toast({ title: 'Jugada Especial Añadida', description: `La jugada ${values.name} ha sido creada.` });
+      toast.success(`La jugada ${values.name} ha sido creada.`);
     }
     specialPlayForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0 });
   };
 
   const startEditingLottery = (lottery: Lottery) => {
     setEditingLottery(lottery);
-    lotteryForm.reset(lottery);
+    lotteryForm.reset({ ...lottery, drawTimes: lottery.drawTimes.map(t => ({value: t})) });
   };
 
   const cancelEditingLottery = () => {
@@ -104,7 +111,7 @@ export default function SettingsPage() {
 
   const deleteLottery = (lotteryId: string) => {
     setLotteries(lotteries.filter(l => l.id !== lotteryId));
-    toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+    toast.info('Lotería Eliminada');
   };
 
   const startEditingSpecialPlay = (specialPlay: SpecialPlay) => {
@@ -119,7 +126,7 @@ export default function SettingsPage() {
 
   const deleteSpecialPlay = (specialPlayId: string) => {
     setSpecialPlays(specialPlays.filter(sp => sp.id !== specialPlayId));
-    toast({ title: 'Jugada Especial Eliminada', variant: 'destructive' });
+    toast.info('Jugada Especial Eliminada');
   };
   
   const handleIconUpload = (event: React.ChangeEvent<HTMLInputElement>, formType: 'lottery' | 'specialPlay') => {
@@ -183,7 +190,7 @@ export default function SettingsPage() {
                         <div key={field.id} className="flex items-center gap-2">
                              <FormField
                                 control={lotteryForm.control}
-                                name={`drawTimes.${index}`}
+                                name={`drawTimes.${index}.value`}
                                 render={({ field }) => (
                                 <FormItem className="flex-1">
                                     <FormControl>
@@ -200,7 +207,7 @@ export default function SettingsPage() {
                         </div>
                     ))}
                      {drawTimesFields.length < 4 && (
-                         <Button type="button" variant="outline" size="sm" onClick={() => appendDrawTime('12:00 PM')}><PlusCircle className="mr-2 h-4 w-4" />Añadir Hora</Button>
+                         <Button type="button" variant="outline" size="sm" onClick={() => appendDrawTime({ value: '12:00 PM'})}><PlusCircle className="mr-2 h-4 w-4" />Añadir Hora</Button>
                     )}
                     </div>
                     <FormMessage>{lotteryForm.formState.errors.drawTimes?.message}</FormMessage>

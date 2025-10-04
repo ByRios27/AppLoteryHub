@@ -16,11 +16,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { type Winner, type Sale, type Lottery } from '@/lib/data';
+import { type Winner, type Sale, type Lottery, type SpecialPlay } from '@/lib/data';
 import { SaleReceiptModal } from '@/components/SaleReceiptModal';
 import { Eye, Calendar as CalendarIcon, Award, Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
-import { format, subDays, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const createRegisterDrawSchema = (lotteries: any[]) => z.object({
+const createRegisterDrawSchema = (lotteries: Lottery[]) => z.object({
   lotteryId: z.string().nonempty("Debes seleccionar una lotería."),
   drawTime: z.string().nonempty("Debes seleccionar un horario de sorteo."),
   firstPrizeNumber: z.string(),
@@ -56,9 +56,9 @@ const createRegisterDrawSchema = (lotteries: any[]) => z.object({
   for (const field of prizeFields) {
       const value = data[field];
       if (value.length > 0 && value.length !== numberOfDigits) {
-        ctx.addIssue({ code: z.ZodIssueCode.invalid_string, validation: 'length', message: `Debe tener ${numberOfDigits} dígitos.`, path: [field] });
+        ctx.addIssue({ code: z.ZodIssueCode.invalid_literal, expected: `${numberOfDigits}` , received: value, message: `Debe tener ${numberOfDigits} dígitos.`, path: [field] });
       } else if (value.length > 0 && !/^\d+$/.test(value)) {
-        ctx.addIssue({ code: z.ZodIssueCode.invalid_string, message: 'Solo números.', path: [field] });
+        ctx.addIssue({ code: z.ZodIssueCode.invalid_string, validation: 'regex', message: 'Solo números.', path: [field] });
       }
   }
   if (data.firstPrizeNumber.length === 0 && data.secondPrizeNumber.length === 0 && data.thirdPrizeNumber.length === 0) {
@@ -68,7 +68,7 @@ const createRegisterDrawSchema = (lotteries: any[]) => z.object({
 
 interface WinnerDetails extends Winner {
   customerName?: string;
-  sale: Sale | null;
+  sale: Sale | undefined;
   lottery?: Lottery;
   specialPlayName?: string;
 }
@@ -123,11 +123,21 @@ function EditResultModal({ open, onOpenChange, result, onUpdate }: { open: boole
     );
 }
 
+// Helper function to determine badge color based on prize tier
+const getPrizeTierClass = (tier: number) => {
+  switch (tier) {
+    case 1: return 'bg-yellow-400 text-black';
+    case 2: return 'bg-blue-400 text-white';
+    case 3: return 'bg-green-400 text-white';
+    default: return 'bg-gray-400 text-white';
+  }
+};
+
 export default function ResultsPage() {
   const { winners, sales, lotteries, specialPlays, winningResults, addWinningResult, confirmAndPayWinner, updateWinningResult, deleteWinningResult } = useStateContext();
   const [isClient, setIsClient] = useState(false);
-  const [selectedLottery, setSelectedLottery] = useState<any | null>(null);
-  const [historicFilterLottery, setHistoricFilterLottery] = useState<any | null>(null);
+  const [selectedLottery, setSelectedLottery] = useState<Lottery | null>(null);
+  const [historicFilterLottery, setHistoricFilterLottery] = useState<Lottery | null>(null);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [filterLotteryId, setFilterLotteryId] = useState<string>('');
   const [filterDrawTime, setFilterDrawTime] = useState<string>('');
@@ -213,7 +223,7 @@ export default function ResultsPage() {
   };
 
   const winnerDetails: WinnerDetails[] = useMemo(() => winners.map(winner => {
-    const sale = sales.find(s => s.id === winner.id.split('-')[0]) || null;
+    const sale = sales.find(s => s.id === winner.id.split('-')[0]);
     const lottery = lotteries.find(l => l.id === winner.lotteryId);
     const specialPlay = specialPlays.find(sp => sp.id === winner.specialPlayId);
     return { ...winner, customerName: sale?.customerName || '-', sale, lottery, specialPlayName: specialPlay?.name };
@@ -221,6 +231,8 @@ export default function ResultsPage() {
 
   const regularWinners = useMemo(() => winnerDetails.filter(w => !w.specialPlayId), [winnerDetails]);
   const specialWinners = useMemo(() => winnerDetails.filter(w => w.specialPlayId), [winnerDetails]);
+  
+  const [receiptModalState, setReceiptModalState] = useState<{ open: boolean; sale?: Sale; item?: Lottery | SpecialPlay }>({ open: false });
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
@@ -253,7 +265,9 @@ export default function ResultsPage() {
             </CardContent>
         </Card>
       </div>
-      <Tabs defaultValue="regular" className="w-full"><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="regular">Ganadores Regulares ({regularWinners.length})</TabsTrigger><TabsTrigger value="special">Ganadores Especiales ({specialWinners.length})</TabsTrigger></TabsList><TabsContent value="regular"><Card><CardHeader><CardTitle>Premios Pendientes de Pago</CardTitle><CardDescription>Lista de ganadores de sorteos tradicionales que aún no han sido pagados.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Lotería/Sorteo</TableHead><TableHead>Cliente</TableHead><TableHead>Número Ganador</TableHead><TableHead>Premio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{isClient && regularWinners.length > 0 ? (regularWinners.map(winner => (<TableRow key={winner.id}><TableCell>{winner.lottery?.name || 'N/A'}<p className="text-xs text-muted-foreground">{winner.drawTime}</p></TableCell><TableCell>{winner.customerName}</TableCell><TableCell><p className="font-mono font-bold">{winner.ticketNumber}</p></TableCell><TableCell><Badge variant="default">Premio {winner.prizeTier}</Badge></TableCell><TableCell className="flex justify-end items-center gap-2"><Button size="sm" variant={'destructive'} onClick={() => handlePayClick(winner)}>Pagar</Button>{winner.sale && winner.lottery && <SaleReceiptModal sale={winner.sale} item={winner.lottery}><Button variant="outline" size="icon"><Eye className="h-4 w-4" /></Button></SaleReceiptModal>}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">{isClient ? 'No hay premios pendientes.' : 'Cargando...'}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card></TabsContent><TabsContent value="special"><Card><CardHeader><CardTitle>Premios Especiales Pendientes</CardTitle><CardDescription>Lista de ganadores de jugadas especiales que aún no han sido pagados.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Jugada / Lotería</TableHead><TableHead>Cliente</TableHead><TableHead>Número Jugado</TableHead><TableHead>Nivel de Premio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{isClient && specialWinners.length > 0 ? (specialWinners.map(winner => (<TableRow key={winner.id} className={getPrizeTierClass(winner.prizeTier)}><TableCell>{winner.specialPlayName}<p className="text-xs text-muted-foreground">En: {winner.lottery?.name} ({winner.drawTime})</p></TableCell><TableCell>{winner.customerName}</TableCell><TableCell><p className="font-mono font-bold">{winner.ticketNumber}</p></TableCell><TableCell><Badge><Award className="h-4 w-4 mr-1"/>{winner.prizeTier === 1 ? 'Dorado' : winner.prizeTier === 2 ? 'Azul' : 'Verde'}</Badge></TableCell><TableCell className="flex justify-end items-center gap-2"><Button size="sm" variant={'destructive'} onClick={() => handlePayClick(winner)}>Pagar</Button>{winner.sale && winner.lottery && <SaleReceiptModal sale={winner.sale} item={winner.lottery}><Button variant="outline" size="icon"><Eye className="h-4 w-4" /></Button></SaleReceiptModal>}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">{isClient ? 'No hay premios especiales pendientes.' : 'Cargando...'}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card></TabsContent></Tabs>
+      <Tabs defaultValue="regular" className="w-full"><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="regular">Ganadores Regulares ({regularWinners.length})</TabsTrigger><TabsTrigger value="special">Ganadores Especiales ({specialWinners.length})</TabsTrigger></TabsList><TabsContent value="regular"><Card><CardHeader><CardTitle>Premios Pendientes de Pago</CardTitle><CardDescription>Lista de ganadores de sorteos tradicionales que aún no han sido pagados.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Lotería/Sorteo</TableHead><TableHead>Cliente</TableHead><TableHead>Número Ganador</TableHead><TableHead>Premio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{isClient && regularWinners.length > 0 ? (regularWinners.map(winner => (<TableRow key={winner.id}><TableCell>{winner.lottery?.name || 'N/A'}<p className="text-xs text-muted-foreground">{winner.drawTime}</p></TableCell><TableCell>{winner.customerName}</TableCell><TableCell><p className="font-mono font-bold">{winner.ticketNumber}</p></TableCell><TableCell><Badge variant="default">Premio {winner.prizeTier}</Badge></TableCell><TableCell className="flex justify-end items-center gap-2"><Button size="sm" variant={'destructive'} onClick={() => handlePayClick(winner)}>Pagar</Button>{winner.sale && winner.lottery && <Button variant="outline" size="icon" onClick={() => setReceiptModalState({ open: true, sale: winner.sale, item: winner.lottery })}><Eye className="h-4 w-4" /></Button>}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">{isClient ? 'No hay premios pendientes.' : 'Cargando...'}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card></TabsContent><TabsContent value="special"><Card><CardHeader><CardTitle>Premios Especiales Pendientes</CardTitle><CardDescription>Lista de ganadores de jugadas especiales que aún no han sido pagados.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Jugada / Lotería</TableHead><TableHead>Cliente</TableHead><TableHead>Número Jugado</TableHead><TableHead>Nivel de Premio</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{isClient && specialWinners.length > 0 ? (specialWinners.map(winner => (<TableRow key={winner.id} className={getPrizeTierClass(winner.prizeTier)}><TableCell>{winner.specialPlayName}<p className="text-xs text-muted-foreground">En: {winner.lottery?.name} ({winner.drawTime})</p></TableCell><TableCell>{winner.customerName}</TableCell><TableCell><p className="font-mono font-bold">{winner.ticketNumber}</p></TableCell><TableCell><Badge><Award className="h-4 w-4 mr-1"/>{winner.prizeTier === 1 ? 'Dorado' : winner.prizeTier === 2 ? 'Azul' : 'Verde'}</Badge></TableCell><TableCell className="flex justify-end items-center gap-2"><Button size="sm" variant={'destructive'} onClick={() => handlePayClick(winner)}>Pagar</Button>{winner.sale && winner.lottery && <Button variant="outline" size="icon" onClick={() => setReceiptModalState({ open: true, sale: winner.sale, item: winner.lottery })}><Eye className="h-4 w-4" /></Button>}</TableCell></TableRow>))) : (<TableRow><TableCell colSpan={5} className="text-center h-24">{isClient ? 'No hay premios especiales pendientes.' : 'Cargando...'}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card></TabsContent></Tabs>
+
+      {receiptModalState.open && receiptModalState.sale && receiptModalState.item && <SaleReceiptModal open={receiptModalState.open} onOpenChange={(open) => setReceiptModalState({ ...receiptModalState, open })} sale={receiptModalState.sale} item={receiptModalState.item} />}
 
       <EditResultModal open={!!resultToEdit} onOpenChange={(open) => !open && setResultToEdit(null)} result={resultToEdit} onUpdate={handleUpdatePrizes} />
 

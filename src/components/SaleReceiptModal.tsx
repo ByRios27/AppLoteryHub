@@ -4,16 +4,17 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Receipt from './receipt';
-import { Sale } from '@/lib/data';
+import { Sale, Lottery, SpecialPlay } from '@/lib/data';
 import { X } from 'lucide-react';
 
-interface SaleReceiptModalProps {
-  sale?: Sale;
+export interface SaleReceiptModalProps {
+  sale: Sale;
+  item: Lottery | SpecialPlay;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function SaleReceiptModal({ sale, open, onOpenChange }: SaleReceiptModalProps) {
+export function SaleReceiptModal({ sale, item, open, onOpenChange }: SaleReceiptModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm p-0">
