@@ -15,6 +15,8 @@ import { type Lottery, type SpecialPlay } from '@/lib/data';
 import { TimePicker } from '@/components/ui/time-picker';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import { Switch } from "@/components/ui/switch";
+import { db } from '@/lib/firebase';
+import { addDoc, collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 const businessSchema = z.object({
   businessName: z.string().min(1, 'El nombre del negocio es requerido.'),
@@ -25,8 +27,6 @@ const lotterySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido.'),
   icon: z.string().optional(),
-  numberOfDigits: z.coerce.number().min(1, 'Mínimo 1 dígito.').max(10, 'Máximo 10 dígitos.'),
-  cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
   drawTimes: z.array(z.string()).min(1, 'Debe haber al menos un sorteo.').max(4, 'No más de 4 sorteos.'),
 });
 
@@ -109,21 +109,14 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
 }
 
 export default function SettingsPage() {
-  const { lotteries, setLotteries, specialPlays, setSpecialPlays, businessSettings, setBusinessSettings } = useStateContext();
+  const { lotteries, specialPlays, setSpecialPlays, businessSettings, setBusinessSettings } = useStateContext();
   const { toast } = useToast();
   const [editingLottery, setEditingLottery] = useState<Lottery | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    fetchLotteries();
   }, []);
-  
-  const fetchLotteries = async () => {
-    const response = await fetch('/api/lotteries');
-    const data = await response.json();
-    setLotteries(data);
-  };
 
   const businessForm = useForm<z.infer<typeof businessSchema>>({
     resolver: zodResolver(businessSchema),
@@ -132,7 +125,7 @@ export default function SettingsPage() {
 
   const lotteryForm = useForm<z.infer<typeof lotterySchema>>({
     resolver: zodResolver(lotterySchema),
-    defaultValues: { name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] },
+    defaultValues: { name: '', icon: '', drawTimes: [] },
   });
 
   useEffect(() => {
@@ -156,30 +149,23 @@ export default function SettingsPage() {
 
   const handleLotterySubmit = async (values: z.infer<typeof lotterySchema>) => {
     const lotteryData = { ...values, icon: values.icon || 'ticket' };
-    
-    if (editingLottery) {
-      const response = await fetch(`/api/lotteries/${editingLottery.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lotteryData),
-      });
-      if (response.ok) {
-        await fetchLotteries();
-        toast({ title: 'Lotería Actualizada' });
-        setEditingLottery(null);
-      }
-    } else {
-      const response = await fetch('/api/lotteries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lotteryData),
-      });
-      if (response.ok) {
-        await fetchLotteries();
-        toast({ title: 'Lotería Añadida' });
-      }
+    delete lotteryData.id; // Firestore generates its own ID
+
+    try {
+        if (editingLottery) {
+            const lotteryRef = doc(db, 'lotteries', editingLottery.id);
+            await updateDoc(lotteryRef, lotteryData);
+            toast({ title: 'Lotería Actualizada' });
+            setEditingLottery(null);
+        } else {
+            await addDoc(collection(db, 'lotteries'), lotteryData);
+            toast({ title: 'Lotería Añadida' });
+        }
+        lotteryForm.reset({ name: '', icon: '', drawTimes: [] });
+    } catch (error) {
+        console.error("Error guardando la lotería: ", error);
+        toast({ title: 'Error', description: 'No se pudo guardar la lotería.', variant: 'destructive' });
     }
-    lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
 
   const startEditingLottery = (lottery: Lottery) => {
@@ -189,16 +175,19 @@ export default function SettingsPage() {
 
   const cancelEditingLottery = () => {
     setEditingLottery(null);
-    lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
+    lotteryForm.reset({ name: '', icon: '', drawTimes: [] });
   };
 
   const deleteLottery = async (lotteryId: string) => {
-    const response = await fetch(`/api/lotteries/${lotteryId}`, {
-      method: 'DELETE',
-    });
-    if (response.ok) {
-      await fetchLotteries();
-      toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+    try {
+        await deleteDoc(doc(db, 'lotteries', lotteryId));
+        toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+        if (editingLottery && editingLottery.id === lotteryId) {
+            cancelEditingLottery();
+        }
+    } catch (error) {
+        console.error("Error eliminando la lotería: ", error);
+        toast({ title: 'Error', description: 'No se pudo eliminar la lotería.', variant: 'destructive' });
     }
   };
 
@@ -307,10 +296,7 @@ export default function SettingsPage() {
                       )}
                   />
                   <FormField control={lotteryForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <div className="grid grid-cols-2 gap-4">
-                      <FormField control={lotteryForm.control} name="numberOfDigits" render={({ field }) => (<FormItem><FormLabel>Cifras</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={lotteryForm.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Costo</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
+                  
                   <div>
                       <FormLabel>Horarios de Sorteos</FormLabel>
                       <div className="space-y-2 pt-2">

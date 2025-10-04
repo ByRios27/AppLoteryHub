@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { collection, onSnapshot, DocumentData } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Import the db instance
 
 type WinningResults = {
   [date: string]: {
@@ -69,18 +71,20 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useEffect(() => {
-    const fetchLotteries = async () => {
-      try {
-        const response = await fetch('/api/lotteries');
-        if (response.ok) {
-          const data = await response.json();
-          setLotteries(getUniqueItems(data));
-        }
-      } catch (error) {
-        console.error("Failed to fetch lotteries:", error);
-      }
-    };
-    fetchLotteries();
+    const unsubscribe = onSnapshot(collection(db, 'lotteries'), (snapshot) => {
+      const lotteriesData: Lottery[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        icon: doc.data().icon,
+        drawTimes: doc.data().drawTimes,
+      }));
+      setLotteries(getUniqueItems(lotteriesData));
+    }, (error) => {
+      console.error("Error fetching lotteries in real-time:", error);
+      toast.error("No se pudieron cargar las loterías. Revisa tu conexión.");
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on component unmount
   }, []);
 
   useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('business-settings', JSON.stringify(businessSettings)); }, [businessSettings]);
