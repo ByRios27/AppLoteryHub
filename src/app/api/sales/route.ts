@@ -1,15 +1,32 @@
-import { NextResponse } from 'next/server';
 
-// NOTE: The file-based database is disabled because Vercel has a read-only filesystem.
-// This API route is preserved to avoid 404 errors from the client, but it no longer reads or writes files.
-// A proper database (e.g., Vercel KV, Postgres) would be needed to enable public QR verification.
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+
+const salesFilePath = path.join(process.cwd(), 'src', 'lib', 'sales.json');
+
+const readSalesFromFile = (): any[] => {
+  try {
+    const fileContent = fs.readFileSync(salesFilePath, 'utf-8');
+    return JSON.parse(fileContent);
+  } catch (error) {
+    return [];
+  }
+};
+
+const writeSalesToFile = (sales: any[]) => {
+  fs.writeFileSync(salesFilePath, JSON.stringify(sales, null, 2));
+};
 
 export async function POST(request: Request) {
-    // Immediately return a success response without writing to a file.
-    return NextResponse.json({ message: 'Sale recording is currently disabled.' }, { status: 200 });
+  const saleData = await request.json();
+  const sales = readSalesFromFile();
+  sales.push(saleData);
+  writeSalesToFile(sales);
+  return NextResponse.json({ message: 'Sale recorded successfully.' }, { status: 200 });
 }
 
 export async function GET(request: Request) {
-    // Immediately return a not found response as no data can be retrieved.
-    return NextResponse.json({ message: 'Sale lookup is currently disabled.' }, { status: 404 });
+  const sales = readSalesFromFile();
+  return NextResponse.json(sales, { status: 200 });
 }
