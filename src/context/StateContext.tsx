@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
-import { lotteries as initialLotteries } from '@/lib/initial-data';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -48,16 +47,16 @@ interface StateContextType {
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
 const defaultSpecialPlays: SpecialPlay[] = [
-    { id: 'palet', name: 'Palet', icon: 'game-console', type: 'multi_pick', numberOfPicks: 2, cost: 1.00, enabled: false, appliesTo: initialLotteries.map(l => ({ lotteryId: l.id })), },
-    { id: 'tripleta', name: 'Tripleta', icon: 'game-console', type: 'multi_pick', numberOfPicks: 3, cost: 1.00, enabled: true, appliesTo: initialLotteries.map(l => ({ lotteryId: l.id })), },
-    { id: 'arma-tu-suerte', name: 'Arma tu suerte', icon: 'game-console', type: 'single_pick', numberOfDigits: 4, cost: 1.00, enabled: true, appliesTo: initialLotteries.filter(l => l.numberOfDigits === 4).map(l => ({ lotteryId: l.id })), },
+    { id: 'palet', name: 'Palet', icon: 'game-console', type: 'multi_pick', numberOfPicks: 2, cost: 1.00, enabled: false, appliesTo: [], },
+    { id: 'tripleta', name: 'Tripleta', icon: 'game-console', type: 'multi_pick', numberOfPicks: 3, cost: 1.00, enabled: true, appliesTo: [], },
+    { id: 'arma-tu-suerte', name: 'Arma tu suerte', icon: 'game-console', type: 'single_pick', numberOfDigits: 4, cost: 1.00, enabled: true, appliesTo: [], },
 ];
 
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [winningResults, setWinningResults] = useState<WinningResults>({});
   const [winners, setWinners] = useState<Winner[]>([]);
-  const [lotteries, setLotteries] = useState<Lottery[]>(() => getUniqueItems(initialLotteries));
+  const [lotteries, setLotteries] = useState<Lottery[]>([]);
   const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>([]);
   const [sellerId] = useState<string>('ventas01');
   
@@ -68,6 +67,21 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
       return savedSettings ? JSON.parse(savedSettings) : { name: 'Lotto Hub', logo: null };
     } catch (error) { return { name: 'Lotto Hub', logo: null }; }
   });
+
+  useEffect(() => {
+    const fetchLotteries = async () => {
+      try {
+        const response = await fetch('/api/lotteries');
+        if (response.ok) {
+          const data = await response.json();
+          setLotteries(getUniqueItems(data));
+        }
+      } catch (error) {
+        console.error("Failed to fetch lotteries:", error);
+      }
+    };
+    fetchLotteries();
+  }, []);
 
   useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('business-settings', JSON.stringify(businessSettings)); }, [businessSettings]);
 

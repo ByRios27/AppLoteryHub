@@ -116,7 +116,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setIsClient(true);
+    fetchLotteries();
   }, []);
+  
+  const fetchLotteries = async () => {
+    const response = await fetch('/api/lotteries');
+    const data = await response.json();
+    setLotteries(data);
+  };
 
   const businessForm = useForm<z.infer<typeof businessSchema>>({
     resolver: zodResolver(businessSchema),
@@ -147,16 +154,30 @@ export default function SettingsPage() {
     toast({ title: 'Ajustes de Negocio Actualizados' });
   };
 
-  const handleLotterySubmit = (values: z.infer<typeof lotterySchema>) => {
+  const handleLotterySubmit = async (values: z.infer<typeof lotterySchema>) => {
     const lotteryData = { ...values, icon: values.icon || 'ticket' };
+    
     if (editingLottery) {
-      setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...lotteryData } : l));
-      toast({ title: 'Lotería Actualizada' });
-      setEditingLottery(null);
+      const response = await fetch(`/api/lotteries/${editingLottery.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lotteryData),
+      });
+      if (response.ok) {
+        await fetchLotteries();
+        toast({ title: 'Lotería Actualizada' });
+        setEditingLottery(null);
+      }
     } else {
-      const newLottery: Lottery = { ...lotteryData, id: `L${Date.now()}` };
-      setLotteries([...lotteries, newLottery]);
-      toast({ title: 'Lotería Añadida' });
+      const response = await fetch('/api/lotteries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lotteryData),
+      });
+      if (response.ok) {
+        await fetchLotteries();
+        toast({ title: 'Lotería Añadida' });
+      }
     }
     lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
@@ -171,9 +192,14 @@ export default function SettingsPage() {
     lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
 
-  const deleteLottery = (lotteryId: string) => {
-    setLotteries(lotteries.filter(l => l.id !== lotteryId));
-    toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+  const deleteLottery = async (lotteryId: string) => {
+    const response = await fetch(`/api/lotteries/${lotteryId}`, {
+      method: 'DELETE',
+    });
+    if (response.ok) {
+      await fetchLotteries();
+      toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+    }
   };
 
   const handleIconUpload = (event: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
