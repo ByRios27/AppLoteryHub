@@ -2,11 +2,11 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Sale, Winner, Lottery, SpecialPlay } from '@/lib/data';
-import { format } from 'date-fns';
+import { lotteries as initialLotteries, specialPlays as initialSpecialPlays } from '@/lib/initial-data';
+import { differenceInHours, subDays, format } from 'date-fns';
 import { toast } from 'sonner';
-import { collection, onSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '@/lib/firebase'; // Import the db instance
 
+// Custom type for winning results to avoid deeply nested objects
 type WinningResults = {
   [date: string]: {
     [lotteryId: string]: {
@@ -15,11 +15,12 @@ type WinningResults = {
   };
 };
 
-interface BusinessSettings {
-    name: string;
-    logo: string | null;
+interface AppCustomization {
+    appName: string;
+    appLogo: string | null;
 }
 
+// A generic helper to remove duplicate items from an array based on their 'id' property.
 const getUniqueItems = <T extends { id: string }>(items: T[]): T[] => {
     if (!Array.isArray(items)) return [];
     return Array.from(new Map(items.map(item => [item.id, item])).values());
@@ -28,131 +29,99 @@ const getUniqueItems = <T extends { id: string }>(items: T[]): T[] => {
 interface StateContextType {
   sales: Sale[];
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
-  updateSale: (saleId: string, updatedData: Partial<Sale>) => void;
   winningResults: WinningResults;
   addWinningResult: (lotteryId: string, drawTime: string, prizes: string[]) => void;
-  updateWinningResult: (date: string, lotteryId: string, drawTime: string, newPrizes: string[]) => void;
-  deleteWinningResult: (date: string, lotteryId: string, drawTime: string) => void;
   winners: Winner[];
-  addWinner: (winner: Omit<Winner, 'drawDate' | 'paid'>) => void;
-  confirmAndPayWinner: (winnerId: string) => void;
+  addWinner: (ticketId: string, lotteryId: string, drawTime: string, ticketNumber: string, prizeTier: number) => void;
+  updateWinnerPaymentStatus: (winnerId: string, paid: boolean) => void;
   lotteries: Lottery[];
   setLotteries: React.Dispatch<React.SetStateAction<Lottery[]>>;
   specialPlays: SpecialPlay[];
   setSpecialPlays: React.Dispatch<React.SetStateAction<SpecialPlay[]>>;
-  businessSettings: BusinessSettings;
-  setBusinessSettings: React.Dispatch<React.SetStateAction<BusinessSettings>>;
+  appCustomization: AppCustomization;
+  setAppCustomization: React.Dispatch<React.SetStateAction<AppCustomization>>;
   sellerId: string;
-  verificarGanadores: (lotteryId: string, drawTime: string, prizes: string[]) => void;
 }
 
 const StateContext = createContext<StateContextType | undefined>(undefined);
 
-const defaultSpecialPlays: SpecialPlay[] = [
-    { id: 'palet', name: 'Palet', icon: 'game-console', type: 'multi_pick', numberOfPicks: 2, cost: 1.00, enabled: false, appliesTo: [], },
-    { id: 'tripleta', name: 'Tripleta', icon: 'game-console', type: 'multi_pick', numberOfPicks: 3, cost: 1.00, enabled: true, appliesTo: [], },
-    { id: 'arma-tu-suerte', name: 'Arma tu suerte', icon: 'game-console', type: 'single_pick', numberOfDigits: 4, cost: 1.00, enabled: true, appliesTo: [], },
-];
+// A more robust function to get and parse data from localStorage
+function getStoredData<T>(key: string, defaultValue: T): T {
+  if (typeof window === 'undefined') return defaultValue;
+
+  try {
+    const savedData = localStorage.getItem(key);
+    if (!savedData) return defaultValue;
+
+    const parsed = JSON.parse(savedData);
+    return parsed ?? defaultValue;
+  } catch (error) {
+    console.error(`Error processing ${key} from localStorage`, error);
+    localStorage.removeItem(key); // Remove corrupted data
+    return defaultValue;
+  }
+}
 
 export const StateContextProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [winningResults, setWinningResults] = useState<WinningResults>({});
   const [winners, setWinners] = useState<Winner[]>([]);
-  const [lotteries, setLotteries] = useState<Lottery[]>([]);
-  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>([]);
+  const [lotteries, setLotteries] = useState<Lottery[]>(() => getUniqueItems(initialLotteries));
+  const [specialPlays, setSpecialPlays] = useState<SpecialPlay[]>(() => getUniqueItems(initialSpecialPlays));
+  const [appCustomization, setAppCustomization] = useState<AppCustomization>({ appName: 'Lotto Hub', appLogo: null });
   const [sellerId] = useState<string>('ventas01');
-  
-  const [businessSettings, setBusinessSettings] = useState<BusinessSettings>(() => {
-    if (typeof window === 'undefined') return { name: 'Lotto Hub', logo: null };
-    try {
-      const savedSettings = localStorage.getItem('business-settings');
-      return savedSettings ? JSON.parse(savedSettings) : { name: 'Lotto Hub', logo: null };
-    } catch (error) { return { name: 'Lotto Hub', logo: null }; }
-  });
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Effect for loading all data from localStorage on initial mount
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'lotteries'), (snapshot) => {
-      const lotteriesData: Lottery[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        icon: doc.data().icon,
-        drawTimes: doc.data().drawTimes,
-      }));
-      setLotteries(getUniqueItems(lotteriesData));
-    }, (error) => {
-      console.error("Error fetching lotteries in real-time:", error);
-      toast.error("No se pudieron cargar las loterías. Revisa tu conexión.");
-    });
+    const now = new Date();
 
-    return () => unsubscribe(); // Cleanup subscription on component unmount
+    // Load and filter sales, winners, and results
+    setSales(getStoredData('lotterySales', []).filter(sale => differenceInHours(now, new Date(sale.soldAt)) < 12));
+    setWinners(getStoredData('lotteryWinners', []).filter(winner => differenceInHours(now, new Date(winner.drawDate)) < 24));
+    
+    const resultsData = getStoredData('winningResults', {});
+    const sevenDaysAgo = subDays(now, 7);
+    const validResults = Object.entries(resultsData).reduce<WinningResults>((acc, [dateStr, dailyResults]) => {
+      if (new Date(dateStr) >= sevenDaysAgo) {
+        acc[dateStr] = dailyResults;
+      }
+      return acc;
+    }, {});
+    setWinningResults(validResults);
+
+    // Load and deduplicate lotteries and special plays
+    setLotteries(getUniqueItems(getStoredData('appLotteries', initialLotteries)));
+    setSpecialPlays(getUniqueItems(getStoredData('appSpecialPlays', initialSpecialPlays)));
+    setAppCustomization(getStoredData('appCustomization', { appName: 'Lotto Hub', appLogo: null }));
+
+    setIsInitialized(true);
   }, []);
 
-  useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem('business-settings', JSON.stringify(businessSettings)); }, [businessSettings]);
-
+  // Effect for saving all data to localStorage whenever it changes
   useEffect(() => {
-    const savedSpecialPlays = localStorage.getItem('special-plays');
-    const initialSpecialPlays = savedSpecialPlays ? JSON.parse(savedSpecialPlays) : [];
-    const mergedSpecialPlays = defaultSpecialPlays.map(defaultPlay => {
-        const savedPlay = initialSpecialPlays.find((p: SpecialPlay) => p.id === defaultPlay.id);
-        return savedPlay ? { ...defaultPlay, ...savedPlay } : defaultPlay;
-    });
-    setSpecialPlays(mergedSpecialPlays);
-  }, []);
+    if (isInitialized) {
+      try {
+        localStorage.setItem('lotterySales', JSON.stringify(sales));
+        localStorage.setItem('winningResults', JSON.stringify(winningResults));
+        localStorage.setItem('lotteryWinners', JSON.stringify(winners));
+        
+        // Deduplicate before saving
+        localStorage.setItem('appLotteries', JSON.stringify(getUniqueItems(lotteries)));
+        localStorage.setItem('appSpecialPlays', JSON.stringify(getUniqueItems(specialPlays)));
+        localStorage.setItem('appCustomization', JSON.stringify(appCustomization));
 
-  useEffect(() => { if (specialPlays.length > 0) localStorage.setItem('special-plays', JSON.stringify(specialPlays)); }, [specialPlays]);
-
-  const updateSale = (saleId: string, updatedData: Partial<Sale>) => {
-    setSales(prev => prev.map(sale => sale.id === saleId ? { ...sale, ...updatedData, id: sale.id } : sale));
-  };
-
-  const addWinner = (winnerData: Omit<Winner, 'drawDate' | 'paid'>) => {
-    const newWinner: Winner = { ...winnerData, drawDate: new Date().toISOString(), paid: false };
-    setWinners(prev => {
-        if (prev.some(w => w.id === newWinner.id)) return prev;
-        toast.success(`¡Nuevo Ganador! Ticket ${newWinner.ticketNumber}`);
-        return [...prev, newWinner];
-    });
-  };
-
-  const confirmAndPayWinner = (winnerId: string) => {
-    const winnerToPay = winners.find(w => w.id === winnerId);
-    if (winnerToPay) {
-        setWinners(prev => prev.filter(winner => winner.id !== winnerId));
-        toast.success(`Premio del ticket #${winnerToPay.ticketNumber} ha sido pagado y archivado.`);
-    }
-  };
-
-  const verificarGanadores = (lotteryId: string, drawTime: string, prizes: string[]) => {
-    if (!prizes || prizes.length < 3) return;
-    // Simple re-verification: remove old winners for this draw and add new ones.
-    setWinners(prev => prev.filter(w => !(w.lotteryId === lotteryId && w.drawTime === drawTime)));
-
-    const applicableSales = sales.filter(sale => sale.draws.some(draw => draw.lotteryId === lotteryId && draw.drawTime === drawTime));
-    applicableSales.forEach(sale => {
-        if (sale.lotteryId === lotteryId) { 
-            sale.tickets.forEach(ticket => {
-                prizes.forEach((prize, index) => {
-                    if (ticket.ticketNumber === prize) addWinner({ id: `${sale.id}-${ticket.id}`, lotteryId: sale.lotteryId || lotteryId, drawTime, ticketNumber: ticket.ticketNumber, prizeTier: index + 1 });
-                });
-            });
+      } catch (e) {
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+          console.error("LocalStorage quota exceeded!", e);
+          toast.error('Error: El almacenamiento está lleno. No se pueden guardar nuevos datos.');
+        } else {
+          console.error("Failed to save to localStorage", e);
+          toast.error('Ocurrió un error inesperado al guardar los datos.');
         }
-    });
-
-    const armaTuSuerte = specialPlays.find(sp => sp.id === 'arma-tu-suerte');
-    if (armaTuSuerte?.enabled && armaTuSuerte.appliesTo?.some(a => a.lotteryId === lotteryId)) {
-        const atsSales = sales.filter(s => s.specialPlayId === 'arma-tu-suerte' && s.draws.some(d => d.lotteryId === lotteryId && d.drawTime === drawTime));
-        atsSales.forEach(sale => {
-            sale.tickets.forEach(ticket => {
-                const playedNumber = ticket.ticketNumber;
-                let winningTier = 0;
-                if (prizes.includes(playedNumber)) winningTier = 1;
-                else if (prizes.some(p => playedNumber.substring(0, 3) === p.substring(0, 3) || playedNumber.substring(1) === p.substring(1))) winningTier = 2;
-                else if (prizes.some(p => playedNumber.substring(0, 2) === p.substring(0, 2) || playedNumber.substring(2) === p.substring(2))) winningTier = 3;
-                if (winningTier > 0) addWinner({ id: `${sale.id}-${ticket.id}`, lotteryId, drawTime, ticketNumber: playedNumber, prizeTier: winningTier, specialPlayId: 'arma-tu-suerte' });
-            });
-        });
+      }
     }
-  };
+  }, [sales, winningResults, winners, lotteries, specialPlays, appCustomization, isInitialized]);
 
   const addWinningResult = (lotteryId: string, drawTime: string, prizes: string[]) => {
       const today = format(new Date(), 'yyyy-MM-dd');
@@ -163,55 +132,43 @@ export const StateContextProvider = ({ children }: { children: ReactNode }) => {
           newResults[today][lotteryId][drawTime] = prizes;
           return newResults;
       });
-      verificarGanadores(lotteryId, drawTime, prizes);
   };
 
-  const updateWinningResult = (date: string, lotteryId: string, drawTime: string, newPrizes: string[]) => {
-    setWinningResults(prev => {
-        const newResults = JSON.parse(JSON.stringify(prev)); // Deep copy
-        if (newResults[date]?.[lotteryId]?.[drawTime]) {
-            newResults[date][lotteryId][drawTime] = newPrizes;
-        }
-        return newResults;
-    });
-    verificarGanadores(lotteryId, drawTime, newPrizes);
-    toast.success("Resultado actualizado y ganadores re-verificados.");
+  const addWinner = (ticketId: string, lotteryId: string, drawTime: string, ticketNumber: string, prizeTier: number) => {
+    const newWinner: Winner = {
+      id: ticketId, lotteryId, drawTime, ticketNumber, prizeTier,
+      drawDate: new Date().toISOString(),
+      paid: false,
+    };
+    setWinners(prev => prev.some(w => w.id === ticketId) ? prev : [...prev, newWinner]);
   };
-
-  const deleteWinningResult = (date: string, lotteryId: string, drawTime: string) => {
-    setWinningResults(prev => {
-        const newResults = JSON.parse(JSON.stringify(prev)); // Deep copy
-        if (newResults[date]?.[lotteryId]?.[drawTime]) {
-            delete newResults[date][lotteryId][drawTime];
-            if (Object.keys(newResults[date][lotteryId]).length === 0) delete newResults[date][lotteryId];
-            if (Object.keys(newResults[date]).length === 0) delete newResults[date];
-        }
-        return newResults;
-    });
-    setWinners(prev => prev.filter(w => !(w.lotteryId === lotteryId && w.drawTime === drawTime && new Date(w.drawDate).toISOString().startsWith(date))));
-    toast.info("Resultado eliminado y ganadores asociados removidos.");
+  
+  const updateWinnerPaymentStatus = (winnerId: string, paid: boolean) => {
+    setWinners(prev => prev.map(winner => winner.id === winnerId ? { ...winner, paid } : winner));
+    toast.success(`Estado de pago actualizado para el ganador ${winnerId}.`);
   };
 
   const contextValue = {
-    sales, setSales, updateSale,
-    winningResults, addWinningResult, updateWinningResult, deleteWinningResult,
-    winners, addWinner, confirmAndPayWinner, 
+    sales, setSales, 
+    winningResults, addWinningResult,
+    winners, addWinner, updateWinnerPaymentStatus, 
     lotteries, setLotteries, 
     specialPlays, setSpecialPlays,
-    businessSettings, setBusinessSettings, 
-    sellerId,
-    verificarGanadores
+    appCustomization, setAppCustomization, 
+    sellerId
   };
 
   return (
     <StateContext.Provider value={contextValue}>
-      {children}
+      {isInitialized ? children : null}
     </StateContext.Provider>
   );
 };
 
 export const useStateContext = () => {
   const context = useContext(StateContext);
-  if (context === undefined) throw new Error('useStateContext must be used within a StateContextProvider');
+  if (context === undefined) {
+    throw new Error('useStateContext must be used within a StateContextProvider');
+  }
   return context;
 };

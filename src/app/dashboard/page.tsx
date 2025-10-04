@@ -16,7 +16,7 @@ const menuItems = [
 ];
 
 export default function DashboardPage() {
-  const { businessSettings } = useStateContext();
+  const { appCustomization } = useStateContext(); // Corrected: from businessSettings to appCustomization
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -27,11 +27,13 @@ export default function DashboardPage() {
     <div className="flex flex-col items-center justify-start min-h-screen">
       <div className="text-center mt-0 mb-4">
         {isClient ? (
-          <Image src={businessSettings.logo || "/logo.svg"} alt="Logo" width={120} height={120} className="mx-auto mb-4" />
+          // Corrected: use appCustomization.appLogo
+          <Image src={appCustomization.appLogo || "/logo.svg"} alt="Logo" width={120} height={120} className="mx-auto mb-4" />
         ) : (
           <div className="w-[120px] h-[120px] mx-auto mb-4 bg-gray-200 animate-pulse" />
         )}
-        <h1 className="text-5xl font-headline font-bold text-primary">{isClient ? businessSettings.name : "FinalLoto"}</h1>
+        {/* Corrected: use appCustomization.appName */}
+        <h1 className="text-5xl font-headline font-bold text-primary">{isClient ? appCustomization.appName : "FinalLoto"}</h1>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-12 p-4">
         {menuItems.map(({ href, label, icon: Icon }) => (

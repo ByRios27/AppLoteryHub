@@ -15,18 +15,19 @@ import { type Lottery, type SpecialPlay } from '@/lib/data';
 import { TimePicker } from '@/components/ui/time-picker';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import { Switch } from "@/components/ui/switch";
-import { db } from '@/lib/firebase';
-import { addDoc, collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
+// NOTE: The business settings part is preserved from the original file, but it uses appCustomization from context now.
 const businessSchema = z.object({
-  businessName: z.string().min(1, 'El nombre del negocio es requerido.'),
-  businessLogo: z.string().optional(),
+  appName: z.string().min(1, 'El nombre del negocio es requerido.'),
+  appLogo: z.string().optional(),
 });
 
 const lotterySchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es requerido.'),
   icon: z.string().optional(),
+  numberOfDigits: z.coerce.number().min(1, 'Mínimo 1 dígito.').max(10, 'Máximo 10 dígitos.'),
+  cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
   drawTimes: z.array(z.string()).min(1, 'Debe haber al menos un sorteo.').max(4, 'No más de 4 sorteos.'),
 });
 
@@ -35,8 +36,13 @@ const specialPlaySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
   icon: z.string().optional(),
   cost: z.coerce.number().min(0, 'El costo no puede ser negativo.'),
+  // Properties from the original SpecialPlayForm that were missing
+  type: z.enum(['multi_pick', 'single_pick']),
+  numberOfPicks: z.number().optional(),
+  numberOfDigits: z.number().optional(),
 });
 
+// This component is mostly preserved but adapted to use the full special play properties
 function SpecialPlayForm({ play }: { play: SpecialPlay }) {
     const { setSpecialPlays } = useStateContext();
     const { toast } = useToast();
@@ -50,9 +56,7 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
         const file = event.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                callback(reader.result as string);
-            };
+            reader.onloadend = () => { callback(reader.result as string); };
             reader.readAsDataURL(file);
         }
     };
@@ -65,7 +69,7 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
+                 <FormField
                     control={form.control}
                     name="icon"
                     render={({ field }) => (
@@ -74,16 +78,7 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
                             <div className="flex-1">
                                 <FormLabel>Icono</FormLabel>
                                 <div className="flex items-center gap-2">
-                                    <Input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        id={`upload-${play.id}`} 
-                                        className="hidden" 
-                                        onChange={(e) => handleIconUpload(e, (base64) => {
-                                            form.setValue('icon', base64);
-                                            setSpecialPlays(prev => prev.map(p => p.id === play.id ? { ...p, icon: base64 } : p));
-                                        })}
-                                    />
+                                    <Input type="file" accept="image/*" id={`upload-${play.id}`} className="hidden" onChange={(e) => handleIconUpload(e, (base64) => form.setValue('icon', base64))} />
                                     <label htmlFor={`upload-${play.id}`} className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
                                         <Upload className="mr-2 h-4 w-4" /> Cambiar Icono
                                     </label>
@@ -97,8 +92,8 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
                     <FormField control={form.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Costo</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                 <FormItem>
-                    <FormLabel>Números a Elegir</FormLabel>
-                    <Input type="number" value={play.numberOfPicks} disabled />
+                    <FormLabel>Tipo de Jugada</FormLabel>
+                    <Input value={play.type === 'multi_pick' ? `Seleccionar ${play.numberOfPicks}` : `Número de ${play.numberOfDigits} cifras`} disabled />
                 </FormItem>
                 <div className="flex justify-end">
                     <Button type="submit">Guardar Cambios</Button>
@@ -109,63 +104,50 @@ function SpecialPlayForm({ play }: { play: SpecialPlay }) {
 }
 
 export default function SettingsPage() {
-  const { lotteries, specialPlays, setSpecialPlays, businessSettings, setBusinessSettings } = useStateContext();
+  const { lotteries, setLotteries, specialPlays, setSpecialPlays, appCustomization, setAppCustomization } = useStateContext();
   const { toast } = useToast();
   const [editingLottery, setEditingLottery] = useState<Lottery | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => { setIsClient(true); }, []);
 
   const businessForm = useForm<z.infer<typeof businessSchema>>({
     resolver: zodResolver(businessSchema),
-    defaultValues: { businessName: '', businessLogo: '' },
+    defaultValues: { appName: '', appLogo: '' },
   });
 
   const lotteryForm = useForm<z.infer<typeof lotterySchema>>({
     resolver: zodResolver(lotterySchema),
-    defaultValues: { name: '', icon: '', drawTimes: [] },
+    defaultValues: { name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] },
   });
 
   useEffect(() => {
-    if (isClient && businessSettings) {
-      businessForm.reset({
-        businessName: businessSettings.name || '',
-        businessLogo: businessSettings.logo || '',
-      });
+    if (isClient && appCustomization) {
+      businessForm.reset({ appName: appCustomization.appName || '', appLogo: appCustomization.appLogo || '' });
     }
-  }, [isClient, businessSettings, businessForm]);
+  }, [isClient, appCustomization, businessForm]);
 
   const { fields: drawTimesFields, append: appendDrawTime, remove: removeDrawTime } = useFieldArray({
-    control: lotteryForm.control,
-    name: 'drawTimes',
+    control: lotteryForm.control, name: 'drawTimes',
   });
 
   const handleBusinessSubmit = (values: z.infer<typeof businessSchema>) => {
-    setBusinessSettings({ name: values.businessName, logo: values.businessLogo || null });
+    setAppCustomization({ name: values.appName, logo: values.appLogo || null });
     toast({ title: 'Ajustes de Negocio Actualizados' });
   };
 
-  const handleLotterySubmit = async (values: z.infer<typeof lotterySchema>) => {
+  const handleLotterySubmit = (values: z.infer<typeof lotterySchema>) => {
     const lotteryData = { ...values, icon: values.icon || 'ticket' };
-    delete lotteryData.id; // Firestore generates its own ID
-
-    try {
-        if (editingLottery) {
-            const lotteryRef = doc(db, 'lotteries', editingLottery.id);
-            await updateDoc(lotteryRef, lotteryData);
-            toast({ title: 'Lotería Actualizada' });
-            setEditingLottery(null);
-        } else {
-            await addDoc(collection(db, 'lotteries'), lotteryData);
-            toast({ title: 'Lotería Añadida' });
-        }
-        lotteryForm.reset({ name: '', icon: '', drawTimes: [] });
-    } catch (error) {
-        console.error("Error guardando la lotería: ", error);
-        toast({ title: 'Error', description: 'No se pudo guardar la lotería.', variant: 'destructive' });
+    if (editingLottery) {
+      setLotteries(lotteries.map(l => l.id === editingLottery.id ? { ...l, ...lotteryData, id: l.id } : l));
+      toast({ title: 'Lotería Actualizada', description: `La lotería ${values.name} ha sido actualizada.` });
+      setEditingLottery(null);
+    } else {
+      const newLottery: Lottery = { ...lotteryData, id: `L${Date.now()}` };
+      setLotteries([...lotteries, newLottery]);
+      toast({ title: 'Lotería Añadida', description: `La lotería ${values.name} ha sido creada.` });
     }
+    lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
 
   const startEditingLottery = (lottery: Lottery) => {
@@ -175,19 +157,14 @@ export default function SettingsPage() {
 
   const cancelEditingLottery = () => {
     setEditingLottery(null);
-    lotteryForm.reset({ name: '', icon: '', drawTimes: [] });
+    lotteryForm.reset({ name: '', icon: '', numberOfDigits: 2, cost: 1.0, drawTimes: [] });
   };
 
-  const deleteLottery = async (lotteryId: string) => {
-    try {
-        await deleteDoc(doc(db, 'lotteries', lotteryId));
-        toast({ title: 'Lotería Eliminada', variant: 'destructive' });
-        if (editingLottery && editingLottery.id === lotteryId) {
-            cancelEditingLottery();
-        }
-    } catch (error) {
-        console.error("Error eliminando la lotería: ", error);
-        toast({ title: 'Error', description: 'No se pudo eliminar la lotería.', variant: 'destructive' });
+  const deleteLottery = (lotteryId: string) => {
+    setLotteries(lotteries.filter(l => l.id !== lotteryId));
+    toast({ title: 'Lotería Eliminada', variant: 'destructive' });
+    if (editingLottery && editingLottery.id === lotteryId) {
+        cancelEditingLottery();
     }
   };
 
@@ -195,17 +172,13 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        callback(reader.result as string);
-      };
+      reader.onloadend = () => { callback(reader.result as string); };
       reader.readAsDataURL(file);
     }
   };
   
   const handleSpecialPlayToggle = (playId: string, enabled: boolean) => {
-      setSpecialPlays(prev => 
-        prev.map(p => p.id === playId ? { ...p, enabled } : p)
-      );
+      setSpecialPlays(prev => prev.map(p => p.id === playId ? { ...p, enabled } : p));
       toast({ title: 'Estado de Jugada Actualizado' });
   };
 
@@ -222,28 +195,22 @@ export default function SettingsPage() {
           {isClient && (
             <Form {...businessForm}>
               <form onSubmit={businessForm.handleSubmit(handleBusinessSubmit)} className="space-y-4">
-                  <FormField
-                    control={businessForm.control}
-                    name="businessLogo"
-                    render={({ field }) => (
+                  <FormField control={businessForm.control} name="appLogo" render={({ field }) => (
                         <FormItem className="flex items-center gap-4">
                         <img src={field.value || '/placeholder.svg'} alt="Logo" className="w-16 h-16 rounded-full object-cover bg-muted"/>
                         <div className="flex-1">
                             <FormLabel>Logo del Negocio</FormLabel>
                             <div className="flex items-center gap-2">
-                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, (base64) => businessForm.setValue('businessLogo', base64))} className="hidden" id="business-logo-upload"/>
+                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, (base64) => businessForm.setValue('appLogo', base64))} className="hidden" id="business-logo-upload"/>
                                 <label htmlFor="business-logo-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full">
                                     <Upload className="mr-2 h-4 w-4" /> Subir Logo
                                 </label>
                             </div>
                         </div>
                         </FormItem>
-                    )}
-                  />
-                <FormField control={businessForm.control} name="businessName" render={({ field }) => (<FormItem><FormLabel>Nombre del Negocio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="flex justify-end gap-2">
-                    <Button type="submit">Guardar Ajustes</Button>
-                </div>
+                    )} />
+                <FormField control={businessForm.control} name="appName" render={({ field }) => (<FormItem><FormLabel>Nombre del Negocio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <div className="flex justify-end gap-2"><Button type="submit">Guardar Ajustes</Button></div>
               </form>
             </Form>
           )}
@@ -257,14 +224,9 @@ export default function SettingsPage() {
                 <Card key={play.id}>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>{play.name}</CardTitle>
-                        <Switch
-                            checked={play.enabled}
-                            onCheckedChange={(checked) => handleSpecialPlayToggle(play.id, checked)}
-                        />
+                        <Switch checked={play.enabled} onCheckedChange={(checked) => handleSpecialPlayToggle(play.id, checked)} />
                     </CardHeader>
-                    <CardContent>
-                        <SpecialPlayForm play={play} />
-                    </CardContent>
+                    <CardContent><SpecialPlayForm play={play} /></CardContent>
                 </Card>
             ))}
         </div>
@@ -272,31 +234,26 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2 mt-8">
         <Card>
-          <CardHeader>
-            <CardTitle>{editingLottery ? 'Editando Lotería' : 'Añadir Nueva Lotería'}</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>{editingLottery ? 'Editando Lotería' : 'Añadir Nueva Lotería'}</CardTitle></CardHeader>
           <CardContent>
             {isClient && (
               <Form {...lotteryForm}>
                 <form onSubmit={lotteryForm.handleSubmit(handleLotterySubmit)} className="space-y-4">
-                  <FormField
-                      control={lotteryForm.control}
-                      name="icon"
-                      render={({ field }) => (
+                   <FormField control={lotteryForm.control} name="icon" render={({ field }) => (
                         <FormItem className="flex items-center gap-4">
-                            <img src={field.value || '/placeholder.svg'} alt="Icono" className="w-16 h-16 rounded-full object-cover bg-muted"/>
-                            <div className="flex-1">
-                                <FormLabel>Icono</FormLabel>
-                                <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, (b64) => lotteryForm.setValue('icon', b64))} className="hidden" id="icon-upload"/>
-                                <label htmlFor="icon-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background h-10 px-4 py-2 w-full">
-                                    <Upload className="mr-2 h-4 w-4" /> Subir Icono
-                                </label>
-                            </div>
+                        <img src={field.value || '/placeholder.svg'} alt="Icono" className="w-16 h-16 rounded-full object-cover bg-muted"/>
+                        <div className="flex-1">
+                            <FormLabel>Icono</FormLabel>
+                            <Input type="file" accept="image/*" onChange={(e) => handleIconUpload(e, (b64) => lotteryForm.setValue('icon', b64))} className="hidden" id="icon-upload"/>
+                            <label htmlFor="icon-upload" className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background h-10 px-4 py-2 w-full"><Upload className="mr-2 h-4 w-4" />Subir Icono</label>
+                        </div>
                         </FormItem>
-                      )}
-                  />
+                    )} />
                   <FormField control={lotteryForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={lotteryForm.control} name="numberOfDigits" render={({ field }) => (<FormItem><FormLabel>Cifras</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={lotteryForm.control} name="cost" render={({ field }) => (<FormItem><FormLabel>Costo</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  </div>
                   <div>
                       <FormLabel>Horarios de Sorteos</FormLabel>
                       <div className="space-y-2 pt-2">
@@ -310,7 +267,6 @@ export default function SettingsPage() {
                       </div>
                       <FormMessage>{lotteryForm.formState.errors.drawTimes?.message}</FormMessage>
                   </div>
-
                   <div className="flex justify-end gap-2">
                       {editingLottery && <Button type="button" variant="outline" onClick={cancelEditingLottery}>Cancelar</Button>}
                       <Button type="submit">{editingLottery ? 'Actualizar Lotería' : 'Guardar Lotería'}</Button>
@@ -322,9 +278,7 @@ export default function SettingsPage() {
         </Card>
 
         <Card>
-            <CardHeader>
-                <CardTitle>Loterías Existentes</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Loterías Existentes</CardTitle></CardHeader>
             <CardContent className="space-y-2">
             {isClient && lotteries.map(lottery => (
                 <div key={lottery.id} className="flex items-center justify-between p-2 rounded-md border">
